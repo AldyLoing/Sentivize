@@ -1,41 +1,110 @@
-# Core dependencies
-streamlit==1.29.0
-pandas==2.1.4
-openpyxl==3.1.2
-numpy==1.26.2
+# ============================================================
+# SENTIVIZE ADVANCED - REQUIREMENTS
+# ============================================================
+# Version: 2.0 Advanced
+# Python: >= 3.8
 
-# Groq AI - Core reasoning engine
+# Core Web Framework
+# ============================================================
+streamlit>=1.29.0
+pandas>=2.1.0
+openpyxl>=3.1.0
+numpy>=1.26.0
+
+# AI/ML Core - ADVANCED MODELS
+# ============================================================
+# Untuk semantic search, embeddings, dan reasoning
+torch>=2.1.0
+transformers>=4.36.0
+sentence-transformers>=2.2.0
+sentencepiece>=0.1.99
+
+# Specific model support
+accelerate>=0.25.0
+safetensors>=0.4.0
+
+# Document Processing - CV/Resume Parsing
+# ============================================================
+# Multi-format support (PDF, DOCX, TXT)
+pdfplumber>=0.10.0
+python-docx>=1.1.0
+PyPDF2>=3.0.0
+
+# Text extraction & processing
+pypdf>=3.17.0
+
+# Web Scraping & Social Media Lookup
+# ============================================================
+# Untuk social media analysis (optional)
+duckduckgo-search>=4.1.0
+googlesearch-python>=1.2.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+lxml>=4.9.0
+
+# Groq AI Integration (Optional - untuk LLM reasoning)
+# ============================================================
 groq>=0.4.0
 
-# Document processing for CV analyzer
-PyPDF2==3.0.1
-python-docx==1.1.0
-pdfplumber==0.10.3
+# Alternative/Mock Models (untuk testing cepat)
+# ============================================================
+# Lightweight models untuk testing tanpa download model besar
+vaderSentiment>=3.3.2
+textblob>=0.17.1
+scikit-learn>=1.3.0
 
-# AI/ML Libraries - Advanced NLP
-transformers==4.36.2
-sentence-transformers==2.2.2
-torch==2.1.2
-sentencepiece==0.1.99
+# Visualization & Charts
+# ============================================================
+plotly>=5.18.0
+matplotlib>=3.8.0
 
-# Web scraping & search
-googlesearch-python==1.2.3
-duckduckgo-search==4.1.1
-beautifulsoup4==4.12.2
-requests==2.31.0
+# Utility Libraries
+# ============================================================
+python-dateutil>=2.8.2
+regex>=2023.12.0
+tqdm>=4.66.0
 
-# Alternative/Mock models (optional but recommended for fast testing)
-vaderSentiment==3.3.2
-textblob==0.17.1
-scikit-learn==1.3.2
+# Data validation & type checking
+pydantic>=2.0.0
 
-# Plotting & Visualization
-plotly==5.18.0
-matplotlib==3.8.2
+# ============================================================
+# INSTALLATION NOTES
+# ============================================================
 
-# Additional utilities
-python-dateutil==2.8.2
-regex==2023.12.25
+# 1. FULL INSTALLATION (recommended):
+#    pip install -r requirements.txt
 
-# Note: For CPU-only PyTorch installation (smaller size), use:
-# pip install torch --index-url https://download.pytorch.org/whl/cpu
+# 2. CPU-ONLY PyTorch (smaller size, no CUDA):
+#    pip install torch --index-url https://download.pytorch.org/whl/cpu
+#    pip install -r requirements.txt
+
+# 3. MINIMAL INSTALLATION (testing only, no AI models):
+#    Install only: streamlit, pandas, openpyxl, numpy
+#    Then enable Mock Mode in application
+
+# ============================================================
+# MODEL DOWNLOADS
+# ============================================================
+# First run akan download models (~1-2 GB):
+# - paraphrase-multilingual-mpnet-base-v2 (~420 MB)
+# - cardiffnlp/twitter-xlm-roberta-base-sentiment (~560 MB)
+# - facebook/bart-large-mnli (~1.6 GB) - optional
+# - Davlan/xlm-roberta-base-ner-hrl (~1.1 GB) - optional
+
+# Models akan di-cache di: ~/.cache/huggingface/
+
+# ============================================================
+# TROUBLESHOOTING
+# ============================================================
+
+# Error: "No module named 'torch'"
+# Solution: pip install torch
+
+# Error: "CUDA not available"
+# Solution: Normal, akan menggunakan CPU (lebih lambat tapi tetap jalan)
+
+# Error: Model download terlalu lama
+# Solution: Gunakan Mock Mode atau pastikan koneksi internet stabil
+
+# Error: Out of memory
+# Solution: Gunakan batch size lebih kecil atau Mock Mode
