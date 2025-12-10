@@ -7,6 +7,7 @@ Sistem analisis CV dengan kecerdasan AI tingkat tinggi:
 - Deep contextual reasoning
 - Human-like understanding
 - Fresh graduate friendly evaluation
+- OpenRouter AI integration untuk semantic reasoning
 """
 
 from typing import Dict, List, Optional, Tuple, Any
@@ -14,7 +15,14 @@ from dataclasses import dataclass, field
 import warnings
 warnings.filterwarnings('ignore')
 
-from ai.advanced_ai_engine import get_ai_engine
+# Import dengan fallback handling
+try:
+    from ai.advanced_ai_engine import get_ai_engine
+except ImportError:
+    # Fallback jika module tidak ada
+    def get_ai_engine():
+        return None
+
 from ai.job_complexity_detector import JobComplexityDetector, JobProfile, JobComplexity
 from ai.cv_preview_extractor import CVPreviewExtractor, CVPreview
 
@@ -94,12 +102,41 @@ class UltraCVAnalysisResult:
 class UltraCVAnalyzer:
     """
     Analyzer super canggih dengan pemahaman kontekstual seperti HR profesional
+    UPGRADED dengan OpenRouter AI untuk semantic reasoning
     """
     
-    def __init__(self):
+    def __init__(self, use_openrouter: bool = True):
+        """
+        Initialize analyzer
+        
+        Args:
+            use_openrouter: Gunakan OpenRouter AI untuk deep reasoning (default: True)
+        """
+        self.use_openrouter = use_openrouter
+        
+        # Legacy AI engine (for embeddings)
         self.ai_engine = get_ai_engine()
+        
+        # Job complexity detector
         self.job_detector = JobComplexityDetector(self.ai_engine)
-        self.preview_extractor = CVPreviewExtractor()
+        
+        # CV Preview extractor (with AI)
+        self.preview_extractor = CVPreviewExtractor(use_ai=use_openrouter)
+        
+        # OpenRouter engine (for semantic reasoning)
+        self._openrouter = None
+    
+    @property
+    def openrouter(self):
+        """Lazy load OpenRouter engine"""
+        if self._openrouter is None and self.use_openrouter:
+            try:
+                from ai.openrouter_engine import get_openrouter_engine
+                self._openrouter = get_openrouter_engine()
+            except Exception as e:
+                print(f"⚠️ OpenRouter not available: {e}. Using fallback methods.")
+                self.use_openrouter = False
+        return self._openrouter
         
     def analyze_cv(
         self,
@@ -137,27 +174,137 @@ class UltraCVAnalyzer:
         
         # Step 3: Score CV berdasarkan Job Complexity
         print("📊 Menghitung skor dengan konteks pekerjaan...")
-        self._calculate_flexible_scores(result, preview, job_profile, job_description)
         
-        # Step 4: Generate Deep Reasoning
-        print("🧠 Menghasilkan reasoning kontekstual...")
-        self._generate_human_reasoning(result, preview, job_profile)
-        
-        # Step 5: Extract Implicit Skills & Patterns
-        print("🔎 Mengidentifikasi skill implisit dan pola...")
-        self._extract_implicit_skills(result, preview)
-        self._identify_patterns(result, preview)
-        
-        # Step 6: Generate Recommendations
-        print("💡 Membuat rekomendasi...")
-        self._generate_recommendations(result, preview, job_profile)
-        
-        # Step 7: Determine Suitability
-        self._determine_suitability(result, job_profile)
+        # Gunakan OpenRouter untuk semantic analysis (jika available)
+        if self.use_openrouter and self.openrouter and len(preview.raw_text) > 100:
+            print("🤖 Menggunakan AI reasoning untuk analisis mendalam...")
+            self._analyze_with_openrouter(result, preview, job_profile, job_description)
+        else:
+            # Fallback ke scoring manual
+            self._calculate_flexible_scores(result, preview, job_profile, job_description)
+            
+            # Step 4: Generate Deep Reasoning
+            print("🧠 Menghasilkan reasoning kontekstual...")
+            self._generate_human_reasoning(result, preview, job_profile)
+            
+            # Step 5: Extract Implicit Skills & Patterns
+            print("🔎 Mengidentifikasi skill implisit dan pola...")
+            self._extract_implicit_skills(result, preview)
+            self._identify_patterns(result, preview)
+            
+            # Step 6: Generate Recommendations
+            print("💡 Membuat rekomendasi...")
+            self._generate_recommendations(result, preview, job_profile)
+            
+            # Step 7: Determine Suitability
+            self._determine_suitability(result, job_profile)
         
         print(f"✅ Analisis selesai: {result.candidate_name} - Score: {result.overall_score:.1f}/100")
         
         return result
+    
+    def _analyze_with_openrouter(
+        self,
+        result: UltraCVAnalysisResult,
+        preview: CVPreview,
+        job_profile: JobProfile,
+        job_description: str
+    ):
+        """
+        Analisis CV menggunakan OpenRouter AI untuk semantic reasoning mendalam
+        """
+        try:
+            # Call OpenRouter untuk analisis
+            ai_analysis = self.openrouter.analyze_cv_semantic(
+                cv_text=preview.raw_text,
+                job_title=result.job_title,
+                job_description=job_description,
+                job_complexity=job_profile.complexity.value
+            )
+            
+            # Map AI analysis ke result
+            result.overall_score = float(ai_analysis.get('suitability_score', 50))
+            result.confidence_level = float(ai_analysis.get('confidence', 50))
+            result.candidate_tier = ai_analysis.get('candidate_tier', 'MEDIUM')
+            result.is_suitable = result.overall_score >= 60
+            
+            # Reasoning
+            result.executive_summary = ai_analysis.get('overall_assessment', '')
+            result.detailed_reasoning = ai_analysis.get('reasoning', '')
+            
+            # Strengths & Weaknesses
+            result.key_strengths = ai_analysis.get('key_strengths', [])[:7]
+            result.key_weaknesses = ai_analysis.get('key_weaknesses', [])[:5]
+            
+            # Matching
+            result.matching_skills = ai_analysis.get('matching_aspects', [])
+            result.missing_skills = ai_analysis.get('missing_aspects', [])
+            result.transferable_experience = ai_analysis.get('transferable_skills', [])
+            
+            # Growth & recommendations
+            growth_potential = ai_analysis.get('growth_potential', 'MEDIUM')
+            result.growth_potential = f"Potensi pertumbuhan: {growth_potential}"
+            result.recommendations.append(ai_analysis.get('recommendation', 'CONSIDER'))
+            
+            # Position recommendations
+            alt_positions = ai_analysis.get('position_alternatives', [])
+            for pos in alt_positions:
+                result.position_recommendations.append({
+                    'position': pos,
+                    'reason': 'Direkomendasikan oleh AI berdasarkan profil kandidat'
+                })
+            
+            # Interview focus areas
+            result.interview_focus_areas = ai_analysis.get('interview_focus', [])
+            
+            # Calculate sub-scores (distribusi dari overall score)
+            self._distribute_scores_from_overall(result, preview, job_profile)
+            
+            print("✅ AI analysis completed successfully")
+            
+        except Exception as e:
+            print(f"⚠️ OpenRouter analysis failed: {e}. Using fallback scoring...")
+            # Fallback to manual scoring
+            self._calculate_flexible_scores(result, preview, job_profile, job_description)
+            self._generate_human_reasoning(result, preview, job_profile)
+    
+    def _distribute_scores_from_overall(
+        self,
+        result: UltraCVAnalysisResult,
+        preview: CVPreview,
+        job_profile: JobProfile
+    ):
+        """
+        Distribusi sub-scores berdasarkan overall score dan preview data
+        """
+        base_score = result.overall_score
+        
+        # Relevance score (tinggi jika overall tinggi)
+        result.relevance_score = base_score * 0.95
+        
+        # Soft skill score (estimate dari preview)
+        soft_skill_factor = min(len(preview.soft_skills) / 8.0, 1.0)
+        result.soft_skill_score = base_score * (0.7 + 0.3 * soft_skill_factor)
+        
+        # Hard skill score
+        hard_skill_factor = min(len(preview.hard_skills + preview.programming_languages) / 10.0, 1.0)
+        result.hard_skill_score = base_score * (0.6 + 0.4 * hard_skill_factor)
+        
+        # Experience score
+        if preview.is_fresh_graduate and job_profile.fresh_graduate_friendly:
+            result.experience_score = base_score * 0.8  # Don't penalize too much
+        else:
+            exp_factor = min(preview.total_work_experience_months / 60.0, 1.0)
+            result.experience_score = base_score * (0.5 + 0.5 * exp_factor)
+        
+        # CV clarity
+        result.cv_clarity_score = 75 if preview.email and preview.full_name else 60
+        
+        # Potential score (tinggi untuk fresh grad di low complexity)
+        if preview.is_fresh_graduate and job_profile.complexity == JobComplexity.LOW:
+            result.potential_score = min(base_score * 1.1, 95)
+        else:
+            result.potential_score = base_score * 0.85
     
     def _calculate_flexible_scores(
         self,

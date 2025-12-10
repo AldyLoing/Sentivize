@@ -1,0 +1,40 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Models cache (too large for Vercel)
+models/
+transformers_cache/
+sentence_transformers_cache/
+
+# Output files
+hasil_analisis.xlsx
+*.xlsx
+*.xls
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment (will use Vercel env vars)
+.env
+
+# Git
+.git/
+.gitignore
+
+# Testing
+test_*.py
+sample_data.csv

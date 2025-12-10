@@ -1,6 +1,7 @@
 """
 CV Preview Extractor Module
 Ekstraksi dan preview data CV sebelum analisis lengkap
+dengan AI-powered intelligent extraction
 """
 
 import re
@@ -10,9 +11,10 @@ from datetime import datetime
 import pdfplumber
 from docx import Document
 
+
 @dataclass
 class CVPreview:
-    """Preview data hasil ekstraksi CV"""
+    """Preview data hasil ekstraksi CV dengan AI enhancement"""
     # Basic Info
     full_name: Optional[str] = None
     email: Optional[str] = None
@@ -22,12 +24,14 @@ class CVPreview:
     
     # Education
     education_summary: List[str] = field(default_factory=list)
+    highest_education: str = ""
     
     # Skills
     hard_skills: List[str] = field(default_factory=list)
     soft_skills: List[str] = field(default_factory=list)
     programming_languages: List[str] = field(default_factory=list)
     tools: List[str] = field(default_factory=list)
+    implicit_skills: List[str] = field(default_factory=list)  # AI-detected implicit skills
     
     # Experience
     work_experiences: List[Dict[str, str]] = field(default_factory=list)  # {title, company, duration}
@@ -36,22 +40,97 @@ class CVPreview:
     
     # Analysis
     candidate_level: str = "Unknown"  # fresh_graduate / junior / mid / senior
+    candidate_type: str = "Unknown"  # Generalist / Specialist / Career Shifter
     estimated_job_complexity: str = "mid"  # low / mid / high
     total_work_experience_months: int = 0
+    total_years_display: str = "0 tahun"
+    
+    # Career Pattern Analysis (AI-powered)
+    career_summary: str = ""  # 3-5 kalimat ringkasan karier
+    career_trajectory: str = ""  # Growing / Stable / Shifting
+    main_focus_area: str = ""  # Bidang utama karier
     
     # Initial Assessment
     initial_conclusion: str = ""
     strengths: List[str] = field(default_factory=list)
+    growth_indicators: List[str] = field(default_factory=list)
+    
+    # Flags
+    is_fresh_graduate: bool = False
+    is_career_shifter: bool = False
+    has_leadership_experience: bool = False
+    has_technical_background: bool = False
     
     # Raw text for further processing
     raw_text: str = ""
+    
+    def get_display_summary(self) -> str:
+        """Generate display summary untuk UI preview"""
+        summary_parts = []
+        
+        summary_parts.append(f"👤 **{self.full_name or 'Nama tidak terdeteksi'}**")
+        
+        if self.email or self.phone:
+            contact = []
+            if self.email:
+                contact.append(f"📧 {self.email}")
+            if self.phone:
+                contact.append(f"📱 {self.phone}")
+            summary_parts.append(" | ".join(contact))
+        
+        if self.highest_education:
+            summary_parts.append(f"🎓 **Pendidikan:** {self.highest_education}")
+        
+        summary_parts.append(f"💼 **Level:** {self.candidate_level}")
+        summary_parts.append(f"📊 **Pengalaman:** {self.total_years_display}")
+        
+        if self.main_focus_area:
+            summary_parts.append(f"🎯 **Fokus:** {self.main_focus_area}")
+        
+        # Top skills
+        top_skills = []
+        if self.programming_languages:
+            top_skills.extend(self.programming_languages[:3])
+        if self.hard_skills and len(top_skills) < 5:
+            top_skills.extend(self.hard_skills[:5-len(top_skills)])
+        
+        if top_skills:
+            summary_parts.append(f"⚡ **Skill Utama:** {', '.join(top_skills)}")
+        
+        # Flags
+        flags = []
+        if self.is_fresh_graduate:
+            flags.append("🌱 Fresh Graduate")
+        if self.is_career_shifter:
+            flags.append("🔄 Career Shifter")
+        if self.has_leadership_experience:
+            flags.append("👔 Leadership Experience")
+        if self.has_technical_background:
+            flags.append("💻 Technical Background")
+        
+        if flags:
+            summary_parts.append(" | ".join(flags))
+        
+        return "\n\n".join(summary_parts)
 
 class CVPreviewExtractor:
     """
     Ekstraksi cepat dan akurat dari CV untuk preview sebelum analisis
+    dengan AI-powered intelligent extraction
     """
     
-    def __init__(self):
+    def __init__(self, use_ai: bool = True):
+        """
+        Initialize extractor
+        
+        Args:
+            use_ai: Gunakan AI untuk enhance extraction (default: True)
+        """
+        self.use_ai = use_ai
+        
+        # Lazy load AI engine
+        self._ai_engine = None
+        
         # Regex patterns untuk ekstraksi
         self.email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
         self.phone_pattern = re.compile(r'(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}')
@@ -86,6 +165,18 @@ class CVPreviewExtractor:
         # Experience keywords
         self.experience_keywords = ['pengalaman', 'experience', 'worked', 'bekerja', 
                                     'position', 'posisi', 'role', 'peran']
+    
+    @property
+    def ai_engine(self):
+        """Lazy load AI engine"""
+        if self._ai_engine is None and self.use_ai:
+            try:
+                from ai.openrouter_engine import get_openrouter_engine
+                self._ai_engine = get_openrouter_engine()
+            except Exception as e:
+                print(f"⚠️ AI Engine not available: {e}")
+                self.use_ai = False
+        return self._ai_engine
         
     def extract_from_file(self, file_path: str, file_type: str = 'pdf') -> CVPreview:
         """
@@ -152,12 +243,317 @@ class CVPreviewExtractor:
             preview.education_summary
         )
         
+        # Set flags
+        preview.is_fresh_graduate = preview.total_work_experience_months < 12
+        preview.is_career_shifter = self._detect_career_shifter(preview.work_experiences)
+        preview.has_leadership_experience = self._has_leadership_exp(preview.work_experiences)
+        preview.has_technical_background = len(preview.programming_languages) > 0 or len(preview.tools) > 2
+        
         # Estimate job complexity suitability
         preview.estimated_job_complexity = self._estimate_job_complexity_fit(preview)
         
-        # Generate initial conclusion
-        preview.initial_conclusion = self._generate_initial_conclusion(preview)
-        preview.strengths = self._identify_strengths(preview)
+        # Display years
+        years = preview.total_work_experience_months / 12
+        preview.total_years_display = f"{years:.1f} tahun" if years > 0 else "Fresh Graduate"
+        
+        # Determine highest education
+        preview.highest_education = self._determine_highest_education(preview.education_summary)
+        
+        # AI Enhancement (jika enabled)
+        if self.use_ai and self.ai_engine:
+            preview = self._enhance_with_ai(preview)
+        else:
+            # Fallback manual analysis
+            preview.initial_conclusion = self._generate_initial_conclusion(preview)
+            preview.strengths = self._identify_strengths(preview)
+            preview.career_summary = self._generate_manual_career_summary(preview)
+            preview.main_focus_area = self._detect_main_focus(preview)
+        
+        return preview
+    
+    def _enhance_with_ai(self, preview: CVPreview) -> CVPreview:
+        """Enhance preview dengan AI reasoning"""
+        try:
+            # Generate career summary dengan AI
+            if len(preview.raw_text) > 100:
+                preview.career_summary = self.ai_engine.generate_career_summary(
+                    preview.raw_text,
+                    max_sentences=5
+                )
+            
+            # Extract implicit skills dengan AI
+            if len(preview.raw_text) > 100:
+                skills_result = self.ai_engine.extract_skills_intelligent(preview.raw_text)
+                preview.implicit_skills = skills_result.get('implicit_skills', [])[:5]
+                
+                # Merge dengan existing skills jika ada yang terlewat
+                ai_hard_skills = skills_result.get('hard_skills', [])
+                for skill in ai_hard_skills:
+                    if skill not in preview.hard_skills and len(preview.hard_skills) < 15:
+                        preview.hard_skills.append(skill)
+            
+            # Generate conclusion dan strengths
+            preview.initial_conclusion = self._generate_ai_conclusion(preview)
+            preview.strengths = self._identify_strengths_ai(preview)
+            preview.main_focus_area = self._detect_main_focus(preview)
+            preview.career_trajectory = self._analyze_career_trajectory(preview)
+            
+        except Exception as e:
+            print(f"⚠️ AI enhancement failed: {e}. Using fallback.")
+            preview.initial_conclusion = self._generate_initial_conclusion(preview)
+            preview.strengths = self._identify_strengths(preview)
+            preview.career_summary = self._generate_manual_career_summary(preview)
+        
+        return preview
+    
+    def _generate_ai_conclusion(self, preview: CVPreview) -> str:
+        """Generate conclusion dengan context awareness"""
+        conclusion_parts = []
+        
+        # Level dan experience
+        if preview.is_fresh_graduate:
+            if len(preview.projects) > 0 or len(preview.organizational_experiences) > 0:
+                conclusion_parts.append(
+                    f"✅ Kandidat **fresh graduate aktif** dengan "
+                    f"{len(preview.projects)} project dan {len(preview.organizational_experiences)} pengalaman organisasi."
+                )
+            else:
+                conclusion_parts.append("✅ Kandidat **fresh graduate**. Cocok untuk posisi entry-level dengan training.")
+        else:
+            years = preview.total_work_experience_months / 12
+            conclusion_parts.append(
+                f"✅ Kandidat **{preview.candidate_level}** dengan pengalaman **{years:.1f} tahun**."
+            )
+        
+        # Technical background
+        if preview.has_technical_background:
+            tech_skills = preview.programming_languages + preview.tools
+            conclusion_parts.append(
+                f"💻 Background teknis dengan keahlian: **{', '.join(tech_skills[:3])}**."
+            )
+        
+        # Career pattern
+        if preview.is_career_shifter:
+            conclusion_parts.append("🔄 Terdeteksi sebagai **career shifter** dengan pengalaman lintas industri.")
+        
+        # Leadership
+        if preview.has_leadership_experience:
+            conclusion_parts.append("👔 Memiliki **pengalaman leadership/managerial**.")
+        
+        # Suitable for
+        if preview.estimated_job_complexity == "Low-Mid":
+            conclusion_parts.append("📋 **Cocok untuk:** Posisi entry to mid-level dengan fokus learning & development.")
+        elif preview.estimated_job_complexity == "Mid":
+            conclusion_parts.append("📋 **Cocok untuk:** Posisi mid-level yang membutuhkan kombinasi skill & experience.")
+        else:
+            conclusion_parts.append("📋 **Cocok untuk:** Posisi specialist/senior dengan tanggung jawab tinggi.")
+        
+        return " ".join(conclusion_parts)
+    
+    def _identify_strengths_ai(self, preview: CVPreview) -> List[str]:
+        """Identify strengths dengan AI awareness"""
+        strengths = []
+        
+        # Technical strengths
+        if len(preview.programming_languages) > 3:
+            strengths.append(f"💻 Multi-language programmer ({', '.join(preview.programming_languages[:3])})")
+        elif len(preview.programming_languages) > 0:
+            strengths.append(f"💻 Programming: {', '.join(preview.programming_languages)}")
+        
+        # Tools mastery
+        if len(preview.tools) > 5:
+            strengths.append(f"🛠️ Wide range of tools ({len(preview.tools)} tools)")
+        
+        # Experience
+        if preview.total_work_experience_months > 60:
+            years = preview.total_work_experience_months // 12
+            strengths.append(f"⭐ {years}+ years professional experience")
+        elif preview.total_work_experience_months > 24:
+            strengths.append("📈 Solid mid-level experience")
+        
+        # Projects & initiatives
+        if len(preview.projects) > 3:
+            strengths.append(f"🚀 Strong project portfolio ({len(preview.projects)} projects)")
+        elif len(preview.projects) > 0:
+            strengths.append(f"🚀 Project experience ({len(preview.projects)} projects)")
+        
+        # Organizational experience (valuable untuk fresh grad)
+        if preview.is_fresh_graduate and len(preview.organizational_experiences) > 0:
+            strengths.append(f"🌟 Active in organizations ({len(preview.organizational_experiences)})")
+        
+        # Leadership
+        if preview.has_leadership_experience:
+            strengths.append("👔 Leadership & management experience")
+        
+        # Soft skills diversity
+        if len(preview.soft_skills) > 5:
+            strengths.append(f"🤝 Well-rounded soft skills ({len(preview.soft_skills)} skills)")
+        
+        # Online presence
+        if preview.linkedin and preview.github:
+            strengths.append("🌐 Professional online presence (LinkedIn + GitHub)")
+        elif preview.linkedin:
+            strengths.append("🌐 LinkedIn profile available")
+        
+        # Implicit skills (AI-detected)
+        if preview.implicit_skills and len(preview.implicit_skills) > 0:
+            strengths.append(f"🎯 Implicit skills: {', '.join(preview.implicit_skills[:2])}")
+        
+        return strengths[:7]  # Max 7 strengths
+    
+    def _generate_manual_career_summary(self, preview: CVPreview) -> str:
+        """Generate career summary tanpa AI (fallback)"""
+        parts = []
+        
+        # Education
+        if preview.highest_education:
+            parts.append(f"Lulusan {preview.highest_education}")
+        
+        # Experience level
+        if preview.is_fresh_graduate:
+            parts.append("dengan antusiasme tinggi untuk memulai karier profesional")
+        else:
+            years = preview.total_work_experience_months / 12
+            parts.append(f"dengan {years:.1f} tahun pengalaman kerja")
+        
+        # Main area
+        if preview.has_technical_background:
+            if preview.programming_languages:
+                parts.append(f"di bidang teknologi, khususnya {', '.join(preview.programming_languages[:2])}")
+        
+        # Closing
+        if preview.is_fresh_graduate:
+            parts.append(". Memiliki potensi untuk berkembang dengan guidance yang tepat.")
+        else:
+            parts.append(". Kandidat siap untuk memberikan kontribusi immediate.")
+        
+        return " ".join(parts)
+    
+    def _detect_main_focus(self, preview: CVPreview) -> str:
+        """Deteksi fokus utama karier"""
+        # Dari job titles
+        all_titles = [exp.get('title', '').lower() for exp in preview.work_experiences]
+        title_text = ' '.join(all_titles)
+        
+        # Technical roles
+        if any(keyword in title_text for keyword in ['developer', 'engineer', 'programmer', 'software']):
+            return "Software Development"
+        elif any(keyword in title_text for keyword in ['data', 'analyst', 'analytics']):
+            return "Data & Analytics"
+        elif any(keyword in title_text for keyword in ['design', 'ui', 'ux', 'graphic']):
+            return "Design"
+        elif any(keyword in title_text for keyword in ['manager', 'lead', 'head', 'director']):
+            return "Management & Leadership"
+        elif any(keyword in title_text for keyword in ['marketing', 'sales', 'business']):
+            return "Business & Marketing"
+        elif any(keyword in title_text for keyword in ['admin', 'administrative', 'officer']):
+            return "Administration & Operations"
+        elif any(keyword in title_text for keyword in ['finance', 'accounting', 'financial']):
+            return "Finance & Accounting"
+        
+        # From skills
+        if len(preview.programming_languages) > 2:
+            return "Technology"
+        elif len(preview.soft_skills) > len(preview.hard_skills):
+            return "People & Operations"
+        else:
+            return "General / Multi-disciplinary"
+    
+    def _analyze_career_trajectory(self, preview: CVPreview) -> str:
+        """Analyze career trajectory pattern"""
+        if len(preview.work_experiences) == 0:
+            return "Starting"
+        
+        # Check for progression in titles
+        titles = [exp.get('title', '').lower() for exp in preview.work_experiences]
+        
+        has_junior = any('junior' in t or 'staff' in t for t in titles)
+        has_senior = any('senior' in t or 'lead' in t or 'manager' in t for t in titles)
+        
+        if has_junior and has_senior:
+            return "Growing (Junior → Senior)"
+        elif has_senior:
+            return "Established (Senior Level)"
+        elif has_junior:
+            return "Developing (Early Career)"
+        elif len(preview.work_experiences) > 3:
+            return "Stable (Multiple Experiences)"
+        else:
+            return "Building Foundation"
+    
+    def _detect_career_shifter(self, work_exp: List[Dict]) -> bool:
+        """Deteksi apakah career shifter"""
+        if len(work_exp) < 2:
+            return False
+        
+        # Extract industries/roles
+        titles = [exp.get('title', '').lower() for exp in work_exp]
+        
+        # Check for vastly different roles
+        tech_roles = ['developer', 'engineer', 'programmer', 'it']
+        business_roles = ['sales', 'marketing', 'business']
+        admin_roles = ['admin', 'officer', 'coordinator']
+        
+        has_tech = any(any(role in title for role in tech_roles) for title in titles)
+        has_business = any(any(role in title for role in business_roles) for title in titles)
+        has_admin = any(any(role in title for role in admin_roles) for title in titles)
+        
+        # Career shifter if has roles in 2+ different categories
+        category_count = sum([has_tech, has_business, has_admin])
+        return category_count >= 2
+    
+    def _has_leadership_exp(self, work_exp: List[Dict]) -> bool:
+        """Check apakah punya leadership experience"""
+        leadership_keywords = ['manager', 'lead', 'head', 'director', 'supervisor', 
+                              'coordinator', 'chief', 'kepala', 'koordinator']
+        
+        for exp in work_exp:
+            title = exp.get('title', '').lower()
+            if any(keyword in title for keyword in leadership_keywords):
+                return True
+        
+        return False
+    
+    def _determine_highest_education(self, education_list: List[str]) -> str:
+        """Determine highest education level dengan deteksi yang lebih akurat"""
+        if not education_list:
+            return "Tidak terdeteksi"
+        
+        edu_text = ' '.join(education_list).lower()
+        
+        # Deteksi dengan word boundary untuk menghindari false positive
+        # Prioritas dari tertinggi ke terendah
+        
+        # S3 / Doktor (harus benar-benar S3, bukan bagian dari CSS3)
+        if re.search(r'\bs3\b|\bdoktor\b|\bphd\b|\bdoctoral\b', edu_text):
+            return "S3 / Doktor"
+        
+        # S2 / Master
+        elif re.search(r'\bs2\b|\bmaster\b|\bmagister\b|\bm\.?sc\b|\bm\.?a\b', edu_text):
+            return "S2 / Master"
+        
+        # S1 / Sarjana (paling umum untuk fresh graduate)
+        elif re.search(r'\bs1\b|\bsarjana\b|\bbachelor\b|\bb\.?sc\b|\bb\.?a\b|\bgpa\b', edu_text):
+            return "S1 / Sarjana"
+        
+        # D4
+        elif re.search(r'\bd4\b|diploma 4|diploma iv', edu_text):
+            return "D4"
+        
+        # D3
+        elif re.search(r'\bd3\b|diploma 3|diploma iii|diploma', edu_text):
+            return "D3"
+        
+        # SMA / SMK
+        elif re.search(r'\bsma\b|\bsmk\b|high school|senior high', edu_text):
+            return "SMA / SMK"
+        
+        # Try to extract university name (kemungkinan S1)
+        for edu in education_list:
+            if 'universitas' in edu.lower() or 'university' in edu.lower():
+                return "S1 / Sarjana"
+        
+        return education_list[0][:50]  # Return first education entry
         
         return preview
     
@@ -238,16 +634,34 @@ class CVPreviewExtractor:
         return f"https://{match.group(0)}" if match else None
     
     def _extract_education(self, text: str) -> List[str]:
-        """Ekstraksi pendidikan"""
+        """Ekstraksi pendidikan dengan filter lebih ketat"""
         education = []
         lines = text.split('\n')
         
+        # Keywords yang BUKAN education (untuk filter)
+        non_education_keywords = ['html', 'css', 'javascript', 'python', 'java', 'php', 'api', 
+                                  'cloud', 'devops', 'database', 'framework', 'library',
+                                  'development', 'programming', 'technical', 'skill', 'bootstrap',
+                                  'tailwind', 'vercel', 'railway', 'github', 'restful']
+        
         for i, line in enumerate(lines):
             line_lower = line.lower()
+            
+            # Skip jika mengandung technical keywords (ini skill, bukan education)
+            if any(tech_keyword in line_lower for tech_keyword in non_education_keywords):
+                continue
+            
             # Cari line yang mengandung education keywords
             if any(keyword in line_lower for keyword in self.education_keywords):
                 # Ambil line tersebut dan beberapa line setelahnya
-                education_block = ' '.join([l.strip() for l in lines[i:min(i+3, len(lines))] if l.strip()])
+                education_lines = []
+                for j in range(i, min(i+3, len(lines))):
+                    line_text = lines[j].strip()
+                    # Skip jika mengandung technical keywords
+                    if line_text and not any(tech in line_text.lower() for tech in non_education_keywords):
+                        education_lines.append(line_text)
+                
+                education_block = ' '.join(education_lines)
                 if education_block and len(education_block) > 10:
                     education.append(education_block[:200])  # Limit length
         
@@ -358,65 +772,173 @@ class CVPreviewExtractor:
         return experiences[:5]  # Max 5 entries
     
     def _extract_organizational_experience(self, text: str) -> List[Dict[str, str]]:
-        """Ekstraksi pengalaman organisasi"""
+        """Ekstraksi pengalaman organisasi dengan deteksi lebih akurat"""
         experiences = []
         lines = text.split('\n')
         
         in_org_section = False
+        skip_next_lines = 0  # Track berapa baris yang harus di-skip (deskripsi)
         
-        for line in lines:
+        # Skip keywords untuk filter non-org content
+        skip_keywords = ['project', 'skill', 'html', 'css', 'javascript', 'python', 
+                        'development', 'api', 'database', 'cloud']
+        
+        for i, line in enumerate(lines):
             line_lower = line.lower()
+            line_stripped = line.strip()
             
-            # Detect organizational section
-            if any(keyword in line_lower for keyword in ['organisasi', 'organization', 'volunteer', 'extracurricular']):
-                in_org_section = True
+            # Skip line jika ini adalah deskripsi dari entry sebelumnya
+            if skip_next_lines > 0:
+                skip_next_lines -= 1
                 continue
             
+            # Detect organizational section header
+            if any(keyword in line_lower for keyword in ['organisasi', 'organization', 'volunteer', 'extracurricular', 'aktivitas']):
+                # Pastikan ini header, bukan bagian dari deskripsi
+                if len(line_stripped) < 50 and not any(skip in line_lower for skip in skip_keywords):
+                    in_org_section = True
+                    continue
+            
             if in_org_section:
-                # Stop jika ketemu section lain
-                if any(keyword in line_lower for keyword in ['education', 'pendidikan', 'skill', 'experience', 'pengalaman kerja']):
+                # Stop jika ketemu section lain (header section)
+                if (any(keyword in line_lower for keyword in ['pendidikan', 'education', 'skill', 'keahlian', 
+                                                               'pengalaman kerja', 'work experience', 'project'])
+                    and len(line_stripped) < 50):
                     break
                 
-                if line.strip() and len(line.strip()) > 10:
+                # Skip baris kosong
+                if not line_stripped:
+                    continue
+                
+                # Skip jika technical content
+                if any(skip in line_lower for skip in skip_keywords):
+                    continue
+                
+                # Check if this looks like ORGANIZATION TITLE/ROLE (bukan deskripsi)
+                is_title_line = (
+                    # Ada dash yang menunjukkan format "Role - Organization" atau "Role – Organization Date"
+                    (' - ' in line_stripped or ' – ' in line_stripped or ' — ' in line_stripped) or
+                    # Huruf pertama kapital dan tidak terlalu panjang
+                    (line_stripped[0].isupper() and len(line_stripped) < 150) or
+                    # Ada bulan/tahun
+                    re.search(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+\d{4}', line_stripped, re.IGNORECASE)
+                )
+                
+                # Check if bukan deskripsi (yang dimulai dengan lowercase atau kata kerja)
+                is_not_description = not (
+                    line_stripped.lower().startswith(('led ', 'managed', 'organized', 'coordinated', 'and ', 'with '))
+                )
+                
+                if is_title_line and is_not_description and len(line_stripped) > 10:
+                    # Ini adalah ORG TITLE/ROLE baru
+                    # Parse role dan organization name
+                    if '-' in line_stripped or '–' in line_stripped or '—' in line_stripped:
+                        parts = re.split(r'\s*[-–—]\s*', line_stripped, maxsplit=1)
+                        role = parts[0].strip()
+                        org_name = parts[1].strip() if len(parts) > 1 else parts[0].strip()
+                    else:
+                        role = 'Member'
+                        org_name = line_stripped
+                    
+                    # Ambil deskripsi dari 1-2 baris berikutnya (optional)
+                    for j in range(1, 3):
+                        if i + j < len(lines):
+                            desc_line = lines[i + j].strip()
+                            # Stop jika ketemu title baru atau section header
+                            if desc_line and not (
+                                (' - ' in desc_line or ' – ' in desc_line) or
+                                any(kw in desc_line.lower() for kw in ['education', 'skill', 'organization:', 'project'])
+                            ):
+                                skip_next_lines += 1
+                            else:
+                                break
+                    
                     experiences.append({
-                        'organization': line.strip()[:100],
-                        'role': 'Member/Volunteer',
-                        'duration': self._extract_duration_from_line(line)
+                        'organization': org_name[:100],
+                        'role': role[:100],
+                        'duration': self._extract_duration_from_line(line_stripped)
                     })
+                    
+                    # Limit untuk menghindari noise
+                    if len(experiences) >= 5:
+                        break
         
         return experiences[:5]
     
     def _extract_projects(self, text: str) -> List[Dict[str, str]]:
-        """Ekstraksi project"""
+        """Ekstraksi project dengan deteksi lebih akurat"""
         projects = []
         lines = text.split('\n')
         
         in_project_section = False
+        skip_next_lines = 0  # Track berapa baris yang harus di-skip (deskripsi)
         
         for i, line in enumerate(lines):
             line_lower = line.lower()
+            line_stripped = line.strip()
             
-            # Detect project section
-            if 'project' in line_lower or 'proyek' in line_lower:
+            # Skip line jika ini adalah deskripsi dari entry sebelumnya
+            if skip_next_lines > 0:
+                skip_next_lines -= 1
+                continue
+            
+            # Detect project section header
+            if ('project' in line_lower or 'proyek' in line_lower) and len(line_stripped) < 50:
                 in_project_section = True
                 continue
             
             if in_project_section:
-                # Stop jika ketemu section lain
-                if any(keyword in line_lower for keyword in ['education', 'pendidikan', 'skill', 'experience']):
+                # Stop jika ketemu section lain (header)
+                if (any(keyword in line_lower for keyword in ['pendidikan', 'education', 'skill', 'keahlian',
+                                                               'organisasi', 'organization', 'pengalaman kerja', 'work experience'])
+                    and len(line_stripped) < 50):
                     break
                 
-                if line.strip() and len(line.strip()) > 10:
-                    # Get project description from next few lines
-                    description_lines = []
-                    for j in range(i+1, min(i+3, len(lines))):
-                        if lines[j].strip():
-                            description_lines.append(lines[j].strip())
+                # Skip baris kosong
+                if not line_stripped:
+                    continue
+                
+                # Check if this looks like a PROJECT TITLE (bukan deskripsi)
+                # Title biasanya: punya huruf kapital di awal, ada dash/date, atau < 100 char
+                is_title_line = (
+                    # Ada dash yang menunjukkan format "Title - Date" atau "Title – Date"
+                    (' - ' in line_stripped or ' – ' in line_stripped or ' — ' in line_stripped) or
+                    # Huruf pertama kapital dan tidak terlalu panjang (< 150 char)
+                    (line_stripped[0].isupper() and len(line_stripped) < 150) or
+                    # Ada bulan/tahun di akhir (Nov 2025, Dec 2024, dll)
+                    re.search(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+\d{4}', line_stripped, re.IGNORECASE)
+                )
+                
+                # Check if bukan deskripsi teknis (yang dimulai dengan lowercase atau kata "Developed")
+                is_not_description = not (
+                    line_stripped.lower().startswith(('developed', 'built', 'created', 'implemented', 'and ', 'using ', 'with '))
+                )
+                
+                if is_title_line and is_not_description and len(line_stripped) > 15:
+                    # Ini adalah PROJECT TITLE baru
+                    # Ambil deskripsi dari 1-2 baris berikutnya
+                    description_parts = []
+                    for j in range(1, 3):
+                        if i + j < len(lines):
+                            desc_line = lines[i + j].strip()
+                            # Stop jika ketemu title baru atau section header
+                            if desc_line and not (
+                                (' - ' in desc_line or ' – ' in desc_line) or
+                                any(kw in desc_line.lower() for kw in ['education', 'skill', 'organization', 'project:'])
+                            ):
+                                description_parts.append(desc_line)
+                                skip_next_lines += 1
+                            else:
+                                break
                     
                     projects.append({
-                        'title': line.strip()[:100],
-                        'description': ' '.join(description_lines[:2])[:200]
+                        'title': line_stripped[:100],
+                        'description': ' '.join(description_parts)[:300]
                     })
+                    
+                    # Limit untuk menghindari noise
+                    if len(projects) >= 5:
+                        break
         
         return projects[:5]
     

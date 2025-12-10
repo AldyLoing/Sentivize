@@ -1,11 +1,13 @@
 """
 Job Complexity Detector Module
 Otomatis mengelompokkan pekerjaan berdasarkan kompleksitas dan kebutuhan skill
+dengan semantic understanding dan AI reasoning
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
+import re
 
 class JobComplexity(Enum):
     LOW = "low"
@@ -141,31 +143,43 @@ class JobComplexityDetector:
     def _generate_low_complexity_reasoning(self, job_title: str, matches: List[str]) -> str:
         """Generate reasoning untuk low complexity jobs"""
         return (
-            f"Posisi '{job_title}' terdeteksi sebagai pekerjaan entry-level/low-complexity. "
-            f"Pekerjaan ini lebih mengutamakan soft skill seperti komunikasi, attitude, dan kemampuan belajar. "
-            f"Fresh graduate dan kandidat tanpa pengalaman langsung tetap layak dipertimbangkan jika menunjukkan "
-            f"kemampuan organisasi, dokumentasi, dan kemauan belajar yang baik. "
-            f"Pengalaman organisasi atau proyek pribadi dapat dianggap sebagai nilai tambah yang relevan."
+            f"✅ Posisi '{job_title}' terdeteksi sebagai pekerjaan **entry-level/low-complexity**.\n\n"
+            f"📋 **Karakteristik:**\n"
+            f"- Lebih mengutamakan **soft skill** seperti komunikasi, attitude, dan kemampuan belajar\n"
+            f"- Fresh graduate dan kandidat tanpa pengalaman langsung **SANGAT LAYAK** dipertimbangkan\n"
+            f"- Pengalaman organisasi, volunteer, atau proyek pribadi dianggap **NILAI TAMBAH RELEVAN**\n"
+            f"- Fokus evaluasi: **attitude, kemauan belajar, organisasi, dan dokumentasi**\n\n"
+            f"💡 **Rekomendasi Evaluasi:**\n"
+            f"Jangan menggugurkan kandidat hanya karena tidak ada pengalaman spesifik. "
+            f"Berikan kesempatan jika kandidat menunjukkan potensi, pendidikan yang sesuai, dan attitude positif."
         )
     
     def _generate_high_complexity_reasoning(self, job_title: str, matches: List[str]) -> str:
         """Generate reasoning untuk high complexity jobs"""
         return (
-            f"Posisi '{job_title}' terdeteksi sebagai pekerjaan spesialisasi/high-complexity. "
-            f"Pekerjaan ini membutuhkan keahlian teknis spesifik dan pengalaman relevan yang kuat. "
-            f"Kandidat diharapkan memiliki track record dalam bidang terkait, portfolio yang jelas, "
-            f"dan kemampuan problem-solving yang mendalam. Fresh graduate perlu menunjukkan proyek "
-            f"atau pengalaman magang yang sangat relevan untuk dipertimbangkan."
+            f"🎯 Posisi '{job_title}' terdeteksi sebagai pekerjaan **spesialisasi/high-complexity**.\n\n"
+            f"📋 **Karakteristik:**\n"
+            f"- Membutuhkan **keahlian teknis spesifik** dan pengalaman relevan yang kuat\n"
+            f"- Kandidat diharapkan memiliki **track record** dalam bidang terkait\n"
+            f"- Portfolio, sertifikasi, atau project nyata menjadi **sangat penting**\n"
+            f"- Hard skill dan technical expertise adalah **prioritas utama**\n\n"
+            f"💡 **Rekomendasi Evaluasi:**\n"
+            f"Fresh graduate perlu menunjukkan **proyek atau pengalaman magang yang SANGAT relevan** "
+            f"untuk dipertimbangkan. Fokus pada skill teknis, problem-solving capability, dan hasil kerja konkret."
         )
     
     def _generate_mid_complexity_reasoning(self, job_title: str) -> str:
         """Generate reasoning untuk mid complexity jobs"""
         return (
-            f"Posisi '{job_title}' terdeteksi sebagai pekerjaan mid-complexity. "
-            f"Pekerjaan ini membutuhkan kombinasi antara soft skill dan hard skill yang seimbang. "
-            f"Kandidat dengan pengalaman relevan akan lebih diutamakan, namun fresh graduate dengan "
-            f"skill yang kuat dan pengalaman organisasi/proyek tetap dapat dipertimbangkan. "
-            f"Kemampuan adaptasi dan pembelajaran cepat menjadi nilai tambah penting."
+            f"⚖️ Posisi '{job_title}' terdeteksi sebagai pekerjaan **mid-complexity**.\n\n"
+            f"📋 **Karakteristik:**\n"
+            f"- Membutuhkan **kombinasi seimbang** antara soft skill dan hard skill\n"
+            f"- Kandidat dengan pengalaman relevan **lebih diutamakan**\n"
+            f"- Fresh graduate dengan skill kuat dan pengalaman organisasi/proyek **tetap dapat dipertimbangkan**\n"
+            f"- Kemampuan adaptasi dan pembelajaran cepat menjadi **nilai tambah penting**\n\n"
+            f"💡 **Rekomendasi Evaluasi:**\n"
+            f"Evaluasi secara **holistic**: pertimbangkan pengalaman, skill, dan potensi pengembangan. "
+            f"Berikan bobot pada transferable skills dari pengalaman sebelumnya."
         )
     
     def get_scoring_weights(self, complexity: JobComplexity) -> Dict[str, float]:

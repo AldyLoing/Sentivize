@@ -3,6 +3,19 @@ Configuration file untuk aplikasi analisis karyawan
 Berisi konstanta, model names, dan settings
 """
 
+import os
+
+# ============================================================
+# AI ENGINE CONFIGURATION
+# ============================================================
+
+# OpenRouter API Configuration (NEW - untuk semantic reasoning)
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
+OPENROUTER_MODEL = "deepseek/deepseek-chat"  # Free model
+OPENROUTER_TEMPERATURE = 0.3  # Low temperature untuk hasil stabil
+OPENROUTER_MAX_TOKENS = 2000
+
+# Fallback: Legacy Transformers Models
 # Model Configuration
 SENTIMENT_MODEL = "indobenchmark/indobert-base-p1"  # Model untuk Bahasa Indonesia
 SENTIMENT_MODEL_FALLBACK = "nlptown/bert-base-multilingual-uncased-sentiment"

@@ -6,6 +6,7 @@ Sistem analisis karyawan dengan:
 - Flexible scoring untuk entry-level positions
 - Social media auto-search & analysis
 - Deep profiling tanpa keyword matching
+- OpenRouter AI integration
 """
 
 from typing import Dict, List, Optional, Any, Tuple
@@ -14,7 +15,13 @@ import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
 
-from ai.advanced_ai_engine import get_ai_engine
+# Import dengan fallback handling
+try:
+    from ai.advanced_ai_engine import get_ai_engine
+except ImportError:
+    def get_ai_engine():
+        return None
+
 from ai.job_complexity_detector import JobComplexityDetector, JobProfile, JobComplexity
 
 @dataclass
@@ -83,11 +90,36 @@ class UltraEmployeeAnalysisResult:
 class UltraEmployeeAnalyzer:
     """
     Analyzer karyawan dengan pemahaman kontekstual
+    UPGRADED dengan OpenRouter AI untuk batch analysis yang lebih cerdas
     """
     
-    def __init__(self):
+    def __init__(self, use_openrouter: bool = True):
+        """
+        Initialize analyzer
+        
+        Args:
+            use_openrouter: Gunakan OpenRouter AI (default: True)
+        """
+        self.use_openrouter = use_openrouter
+        
+        # Legacy AI engine
         self.ai_engine = get_ai_engine()
         self.job_detector = JobComplexityDetector(self.ai_engine)
+        
+        # OpenRouter engine
+        self._openrouter = None
+    
+    @property
+    def openrouter(self):
+        """Lazy load OpenRouter engine"""
+        if self._openrouter is None and self.use_openrouter:
+            try:
+                from ai.openrouter_engine import get_openrouter_engine
+                self._openrouter = get_openrouter_engine()
+            except Exception as e:
+                print(f"⚠️ OpenRouter not available: {e}")
+                self.use_openrouter = False
+        return self._openrouter
         
     def analyze_employee(
         self,
@@ -124,26 +156,121 @@ class UltraEmployeeAnalyzer:
         print(f"   → Fresh Grad Friendly: {'Ya' if job_profile.fresh_graduate_friendly else 'Tidak'}")
         print(f"   → Experience Flexibility: {job_profile.experience_flexibility * 100:.0f}%")
         
-        # Step 2: Score dengan fleksibilitas
-        print(f"📊 Menghitung skor untuk {result.employee_name}...")
-        self._calculate_flexible_scores(result, employee_data, job_profile, job_criteria)
-        
-        # Step 3: Social Media Analysis (if requested)
-        if use_social_media:
-            print(f"📱 Menganalisis social media...")
-            self._analyze_social_media(result, employee_data)
-        
-        # Step 4: Generate Human Reasoning
-        print(f"🧠 Menghasilkan reasoning...")
-        self._generate_human_reasoning(result, employee_data, job_profile)
-        
-        # Step 5: Generate Recommendations
-        print(f"💡 Membuat rekomendasi...")
-        self._generate_recommendations(result, job_profile)
+        # Step 2: Analisis dengan AI (jika available)
+        if self.use_openrouter and self.openrouter:
+            print(f"🤖 Menggunakan AI reasoning untuk analisis mendalam...")
+            self._analyze_with_openrouter(result, employee_data, job_profile, job_criteria, target_position)
+        else:
+            # Fallback: manual scoring
+            print(f"📊 Menghitung skor untuk {result.employee_name}...")
+            self._calculate_flexible_scores(result, employee_data, job_profile, job_criteria)
+            
+            # Step 3: Social Media Analysis (if requested)
+            if use_social_media:
+                print(f"📱 Menganalisis social media...")
+                self._analyze_social_media(result, employee_data)
+            
+            # Step 4: Generate Human Reasoning
+            print(f"🧠 Menghasilkan reasoning...")
+            self._generate_human_reasoning(result, employee_data, job_profile)
+            
+            # Step 5: Generate Recommendations
+            print(f"💡 Membuat rekomendasi...")
+            self._generate_recommendations(result, job_profile)
         
         print(f"✅ Analisis selesai: {result.employee_name} - Score: {result.overall_score:.1f}/100")
         
         return result
+    
+    def _analyze_with_openrouter(
+        self,
+        result: UltraEmployeeAnalysisResult,
+        employee_data: Dict[str, Any],
+        job_profile: JobProfile,
+        job_criteria: str,
+        target_position: str
+    ):
+        """
+        Analisis employee menggunakan OpenRouter AI
+        """
+        try:
+            # Call OpenRouter
+            ai_analysis = self.openrouter.analyze_single_employee(
+                employee_data=employee_data,
+                job_criteria=job_criteria,
+                target_position=target_position,
+                job_complexity=job_profile.complexity.value
+            )
+            
+            # Map hasil AI ke result
+            result.overall_score = float(ai_analysis.get('suitability_score', 50))
+            result.recommendation = ai_analysis.get('recommendation', 'CONSIDER')
+            result.confidence = float(ai_analysis.get('confidence', 50))
+            
+            # Assessment & Reasoning
+            result.executive_summary = ai_analysis.get('overall_assessment', '')
+            result.detailed_reasoning = ai_analysis.get('overall_assessment', '')
+            
+            # Strengths & Concerns
+            result.key_strengths = ai_analysis.get('key_strengths', [])[:7]
+            result.key_concerns = ai_analysis.get('key_concerns', [])[:5]
+            
+            # Skills matching
+            result.matching_skills = ai_analysis.get('transferable_skills', [])[:10]
+            result.transferable_skills = ai_analysis.get('transferable_skills', [])
+            result.development_areas = ai_analysis.get('development_areas', [])
+            
+            # Position fit
+            result.position_fit_explanation = ai_analysis.get('position_fit_explanation', '')
+            result.alternative_positions = ai_analysis.get('alternative_positions', [])
+            
+            # Determine tier dari score
+            if result.overall_score >= 85:
+                result.tier = "EXCELLENT"
+            elif result.overall_score >= 70:
+                result.tier = "STRONG"
+            elif result.overall_score >= 55:
+                result.tier = "MEDIUM"
+            else:
+                result.tier = "LOW"
+            
+            # Distribute sub-scores
+            self._distribute_subscores(result, job_profile)
+            
+            print("✅ AI analysis completed")
+            
+        except Exception as e:
+            print(f"⚠️ OpenRouter analysis failed: {e}. Using fallback...")
+            self._calculate_flexible_scores(result, employee_data, job_profile, job_criteria)
+            self._generate_human_reasoning(result, employee_data, job_profile)
+    
+    def _distribute_subscores(
+        self,
+        result: UltraEmployeeAnalysisResult,
+        job_profile: JobProfile
+    ):
+        """Distribute sub-scores dari overall score"""
+        base = result.overall_score
+        
+        # Soft skills (tinggi untuk low complexity)
+        if job_profile.complexity == JobComplexity.LOW:
+            result.soft_skills_score = min(base * 1.05, 95)
+        else:
+            result.soft_skills_score = base * 0.85
+        
+        # Hard skills
+        if job_profile.complexity == JobComplexity.HIGH:
+            result.hard_skills_score = min(base * 1.1, 95)
+        else:
+            result.hard_skills_score = base * 0.9
+        
+        # Experience relevance
+        result.experience_relevance_score = base * 0.95
+        
+        # Character & attitude (estimate)
+        result.character_score = base * 0.9
+        result.attitude_score = base * 0.88
+        result.cultural_fit_score = base * 0.92
     
     def analyze_batch(
         self,

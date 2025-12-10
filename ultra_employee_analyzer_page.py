@@ -2,6 +2,7 @@
 Ultra Advanced Employee Analyzer Page
 ======================================
 UI page dengan flexible scoring untuk entry-level jobs
+UPGRADED dengan OpenRouter AI integration
 """
 
 import streamlit as st
@@ -12,6 +13,10 @@ import io
 from analysis.ultra_employee_analyzer import UltraEmployeeAnalyzer
 from utils.human_friendly_formatter import HumanFriendlyFormatter
 
+# Load environment variables
+from utils.env_loader import load_env, validate_api_keys
+load_env()
+
 
 def render_ultra_employee_analyzer_page():
     """Render halaman Employee Analyzer dengan job complexity detection"""
@@ -21,14 +26,27 @@ def render_ultra_employee_analyzer_page():
     st.markdown("---")
     
     # Info banner
-    st.info("""
-    **Fitur Baru:**
-    - ✅ Deteksi kompleksitas pekerjaan otomatis (Entry/Mid/Senior)
-    - ✅ Scoring fleksibel untuk posisi entry-level
-    - ✅ Fresh graduate friendly evaluation
-    - ✅ Reasoning kontekstual seperti HR profesional
-    - ✅ Social media auto-search (optional)
-    """)
+    with st.expander("ℹ️ **Fitur AI Reasoning (NEW)**", expanded=False):
+        st.markdown("""
+        **Upgrade Terbaru:**
+        - 🤖 **OpenRouter AI** untuk semantic reasoning mendalam
+        - 🎯 Deteksi kompleksitas pekerjaan otomatis (Entry/Mid/Senior)
+        - 🌱 Scoring fleksibel untuk posisi entry-level
+        - 🆓 Fresh graduate friendly evaluation
+        - 💭 Reasoning kontekstual seperti HR profesional
+        - 📱 Social media auto-search (optional)
+        - 📊 Batch analysis untuk banyak kandidat sekaligus
+        
+        **AI Model:** deepseek-chat (FREE)
+        """)
+        
+        # Check API key status
+        api_status = validate_api_keys()
+        if api_status['openrouter']['configured']:
+            st.success(f"✅ OpenRouter API: Active")
+        else:
+            st.warning("⚠️ OpenRouter API: Not configured (akan menggunakan fallback scoring)")
+            st.caption("Set OPENROUTER_API_KEY di file .env untuk mengaktifkan AI reasoning")
     
     # Initialize analyzer
     if 'employee_analyzer' not in st.session_state:

@@ -2,6 +2,7 @@
 Ultra Advanced CV Analyzer Page
 ================================
 UI page dengan CV Preview sebelum analisis
+UPGRADED dengan OpenRouter AI integration
 """
 
 import streamlit as st
@@ -13,6 +14,10 @@ import tempfile
 from analysis.ultra_cv_analyzer import UltraCVAnalyzer
 from utils.human_friendly_formatter import HumanFriendlyFormatter
 
+# Load environment variables
+from utils.env_loader import load_env, validate_api_keys
+load_env()
+
 
 def render_ultra_cv_analyzer_page():
     """Render halaman CV Analyzer dengan Preview"""
@@ -22,14 +27,26 @@ def render_ultra_cv_analyzer_page():
     st.markdown("---")
     
     # Info banner
-    st.info("""
-    **Fitur Baru:**
-    - ✅ Preview data CV sebelum analisis
-    - ✅ Deteksi kompleksitas pekerjaan otomatis
-    - ✅ Scoring fleksibel untuk fresh graduate
-    - ✅ Reasoning kontekstual seperti HR profesional
-    - ✅ Identifikasi skill implisit dan pola karier
-    """)
+    with st.expander("ℹ️ **Fitur AI Reasoning (NEW)**", expanded=False):
+        st.markdown("""
+        **Upgrade Terbaru:**
+        - 🤖 **OpenRouter AI** untuk semantic reasoning mendalam
+        - ✅ Preview data CV sebelum analisis
+        - 🎯 Deteksi kompleksitas pekerjaan otomatis
+        - 🌱 Scoring fleksibel untuk fresh graduate
+        - 💭 Reasoning kontekstual seperti HR profesional
+        - 🔍 Identifikasi skill implisit dan pola karier
+        
+        **AI Model:** deepseek-chat (FREE)
+        """)
+        
+        # Check API key status
+        api_status = validate_api_keys()
+        if api_status['openrouter']['configured']:
+            st.success(f"✅ OpenRouter API: Active")
+        else:
+            st.warning("⚠️ OpenRouter API: Not configured (akan menggunakan fallback scoring)")
+            st.caption("Set OPENROUTER_API_KEY di file .env untuk mengaktifkan AI reasoning")
     
     # Initialize analyzer
     if 'cv_analyzer' not in st.session_state:
@@ -100,8 +117,54 @@ def render_ultra_cv_analyzer_page():
         # Display Preview if available
         if 'cv_preview' in st.session_state:
             st.markdown("---")
+            st.markdown("### 👁️ Preview Data CV")
+            
+            preview = st.session_state.cv_preview
+            
+            # Use the new display_summary method
+            st.markdown(preview.get_display_summary())
+            
+            # Additional details in expander
+            with st.expander("📋 Detail Lengkap Preview"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if preview.education_summary:
+                        st.markdown("**🎓 Pendidikan:**")
+                        for edu in preview.education_summary[:3]:
+                            st.caption(f"- {edu}")
+                    
+                    if preview.work_experiences:
+                        st.markdown("**💼 Pengalaman Kerja:**")
+                        for exp in preview.work_experiences[:3]:
+                            st.caption(f"- {exp.get('title', '')} @ {exp.get('company', '')}")
+                
+                with col2:
+                    if preview.projects:
+                        st.markdown("**🚀 Project:**")
+                        for proj in preview.projects[:3]:
+                            st.caption(f"- {proj.get('title', '')}")
+                    
+                    if preview.organizational_experiences:
+                        st.markdown("**🌟 Organisasi:**")
+                        for org in preview.organizational_experiences[:3]:
+                            st.caption(f"- {org.get('organization', '')}")
+                
+                # Career summary (jika ada AI)
+                if preview.career_summary:
+                    st.markdown("---")
+                    st.markdown("**💭 AI Career Summary:**")
+                    st.info(preview.career_summary)
+            
+            # Strengths display
+            if preview.strengths:
+                st.markdown("**💪 Kekuatan yang Terdeteksi:**")
+                cols = st.columns(min(len(preview.strengths), 3))
+                for idx, strength in enumerate(preview.strengths[:6]):
+                    with cols[idx % 3]:
+                        st.success(f"✅ {strength}")
+            
             formatter = HumanFriendlyFormatter()
-            formatter.format_preview_card(st.session_state.cv_preview)
             
             # Action buttons
             st.markdown("---")
@@ -274,10 +337,14 @@ def render_ultra_cv_analyzer_page():
             st.markdown("### 📍 Rekomendasi Posisi")
             
             for pos_rec in result.position_recommendations:
-                if pos_rec.get('fit') == 'STRONG FIT':
-                    st.success(f"**{pos_rec['position']}** - {pos_rec['fit']}: {pos_rec['reason']}")
+                # Handle both dict and string format
+                if isinstance(pos_rec, dict):
+                    position = pos_rec.get('position', 'Unknown Position')
+                    reason = pos_rec.get('reason', 'Sesuai dengan profil kandidat')
+                    st.info(f"**{position}** - {reason}")
                 else:
-                    st.info(f"**{pos_rec['position']}** - {pos_rec['fit']}: {pos_rec['reason']}")
+                    # If it's just a string (position name)
+                    st.info(f"**{pos_rec}** - Direkomendasikan berdasarkan profil kandidat")
         
         # Interview Focus
         if result.interview_focus_areas:

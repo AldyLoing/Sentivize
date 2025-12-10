@@ -1,7 +1,7 @@
 # ============================================================
 # SENTIVIZE ADVANCED - REQUIREMENTS
 # ============================================================
-# Version: 2.0 Advanced
+# Version: 3.0 Advanced with OpenRouter AI
 # Python: >= 3.8
 
 # Core Web Framework
@@ -22,6 +22,12 @@ sentencepiece>=0.1.99
 # Specific model support
 accelerate>=0.25.0
 safetensors>=0.4.0
+
+# OpenRouter AI Integration (NEW - untuk semantic reasoning)
+# ============================================================
+# Untuk AI reasoning dengan model free seperti deepseek-chat
+requests>=2.31.0
+httpx>=0.25.0
 
 # Document Processing - CV/Resume Parsing
 # ============================================================
