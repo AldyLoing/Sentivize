@@ -2,17 +2,17 @@
   "version": 2,
   "builds": [
     {
-      "src": "app_ultra.py",
-      "use": "@vercel/python"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": ".streamlit"
+      }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "app_ultra.py"
+      "dest": "/"
     }
-  ],
-  "env": {
-    "OPENROUTER_API_KEY": "@openrouter_api_key"
-  }
+  ]
 }
