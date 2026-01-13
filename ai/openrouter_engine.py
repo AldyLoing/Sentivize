@@ -124,9 +124,10 @@ class OpenRouterEngine:
             )
             
         except requests.exceptions.RequestException as e:
-            print(f"❌ OpenRouter API Error: {e}")
+            print(f"⚠️ OpenRouter API Error: {e}")
+            print(f"ℹ️ Menggunakan fallback scoring (sistem tetap berjalan)")
             return AIResponse(
-                content=f"Error: {str(e)}",
+                content=f"Fallback mode: API Error",
                 model=self.model,
                 tokens_used=0
             )

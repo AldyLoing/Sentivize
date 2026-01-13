@@ -9,6 +9,9 @@ import os
 # AI ENGINE CONFIGURATION
 # ============================================================
 
+# AI Engine Mode (NEW)
+AI_LITE_MODE = os.getenv('AI_LITE_MODE', 'false').lower() == 'true'  # Set to 'true' for low memory systems
+
 # OpenRouter API Configuration (NEW - untuk semantic reasoning)
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
 OPENROUTER_MODEL = "deepseek/deepseek-chat"  # Free model

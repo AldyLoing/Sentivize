@@ -105,17 +105,19 @@ class UltraCVAnalyzer:
     UPGRADED dengan OpenRouter AI untuk semantic reasoning
     """
     
-    def __init__(self, use_openrouter: bool = True):
+    def __init__(self, use_openrouter: bool = True, lite_mode: bool = None):
         """
         Initialize analyzer
         
         Args:
             use_openrouter: Gunakan OpenRouter AI untuk deep reasoning (default: True)
+            lite_mode: Use minimal AI models (for low memory), None = auto from config
         """
         self.use_openrouter = use_openrouter
         
         # Legacy AI engine (for embeddings)
-        self.ai_engine = get_ai_engine()
+        # lite_mode will be auto-detected from config in get_ai_engine()
+        self.ai_engine = get_ai_engine(lite_mode=lite_mode)
         
         # Job complexity detector
         self.job_detector = JobComplexityDetector(self.ai_engine)

@@ -28,64 +28,96 @@ class AdvancedAIEngine:
     Menggabungkan embeddings, sentiment, dan reasoning.
     """
     
-    def __init__(self, device: str = None):
+    def __init__(self, device: str = None, lite_mode: bool = False):
         """
         Initialize AI Engine dengan semua model yang dibutuhkan.
         
         Args:
             device: 'cuda', 'cpu', atau None (auto-detect)
+            lite_mode: If True, load minimal models (for low memory systems)
         """
         # Auto-detect device
         if device is None:
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         else:
             self.device = device
-            
-        print(f"🔧 Initializing Advanced AI Engine on {self.device}...")
         
-        # 1. Semantic Embeddings Model (untuk semantic search)
-        print("📥 Loading semantic embeddings model...")
-        self.embedding_model = SentenceTransformer(
-            'paraphrase-multilingual-mpnet-base-v2',
-            device=self.device
-        )
+        self.lite_mode = lite_mode
         
-        # 2. Sentiment Analysis Model (multilingual)
-        print("📥 Loading sentiment analysis model...")
-        self.sentiment_model_name = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
-        self.sentiment_tokenizer = AutoTokenizer.from_pretrained(
-            self.sentiment_model_name
-        )
-        self.sentiment_model = AutoModelForSequenceClassification.from_pretrained(
-            self.sentiment_model_name
-        ).to(self.device)
+        if lite_mode:
+            print(f"🔧 Initializing Advanced AI Engine in LITE MODE (minimal models)...")
+        else:
+            print(f"🔧 Initializing Advanced AI Engine on {self.device}...")
         
-        # 3. NER Model untuk extraction (opsional, bisa digunakan untuk CV parsing)
-        print("📥 Loading NER model for entity extraction...")
+        # Initialize models with error handling
+        self.embedding_model = None
+        self.sentiment_tokenizer = None
+        self.sentiment_model = None
+        self.ner_pipeline = None
+        self.zero_shot_classifier = None
+        
         try:
-            self.ner_pipeline = pipeline(
-                "ner",
-                model="Davlan/xlm-roberta-base-ner-hrl",
-                aggregation_strategy="simple",
-                device=0 if self.device == 'cuda' else -1
-            )
+            if not lite_mode:
+                # 1. Semantic Embeddings Model (untuk semantic search)
+                print("📥 Loading semantic embeddings model...")
+                self.embedding_model = SentenceTransformer(
+                    'paraphrase-multilingual-mpnet-base-v2',
+                    device=self.device
+                )
+                
+                # 2. Sentiment Analysis Model (multilingual)
+                print("📥 Loading sentiment analysis model...")
+                self.sentiment_model_name = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+                self.sentiment_tokenizer = AutoTokenizer.from_pretrained(
+                    self.sentiment_model_name
+                )
+                self.sentiment_model = AutoModelForSequenceClassification.from_pretrained(
+                    self.sentiment_model_name
+                ).to(self.device)
+                
+                # 3. NER Model untuk extraction (opsional, bisa digunakan untuk CV parsing)
+                print("📥 Loading NER model for entity extraction...")
+                try:
+                    self.ner_pipeline = pipeline(
+                        "ner",
+                        model="Davlan/xlm-roberta-base-ner-hrl",
+                        aggregation_strategy="simple",
+                        device=0 if self.device == 'cuda' else -1
+                    )
+                except Exception as e:
+                    print(f"⚠️ NER model loading failed: {e}. Using fallback.")
+                    self.ner_pipeline = None
+                
+                # 4. Zero-shot classification untuk category detection
+                print("📥 Loading zero-shot classifier...")
+                try:
+                    self.zero_shot_classifier = pipeline(
+                        "zero-shot-classification",
+                        model="facebook/bart-large-mnli",
+                        device=0 if self.device == 'cuda' else -1
+                    )
+                except Exception as e:
+                    print(f"⚠️ Zero-shot classifier loading failed: {e}")
+                    self.zero_shot_classifier = None
+                
+                print("✅ Advanced AI Engine initialized successfully!")
+            else:
+                print("✅ Advanced AI Engine initialized in LITE MODE (models will load on-demand)")
+                
+        except OSError as e:
+            if "paging file" in str(e).lower() or "1455" in str(e):
+                print("⚠️ Memory error detected - switching to LITE MODE")
+                self.lite_mode = True
+                self.embedding_model = None
+                self.sentiment_tokenizer = None
+                self.sentiment_model = None
+                self.ner_pipeline = None
+                self.zero_shot_classifier = None
+            else:
+                raise
         except Exception as e:
-            print(f"⚠️ NER model loading failed: {e}. Using fallback.")
-            self.ner_pipeline = None
-        
-        # 4. Zero-shot classification untuk category detection
-        print("📥 Loading zero-shot classifier...")
-        try:
-            self.zero_shot_classifier = pipeline(
-                "zero-shot-classification",
-                model="facebook/bart-large-mnli",
-                device=0 if self.device == 'cuda' else -1
-            )
-        except Exception as e:
-            print(f"⚠️ Zero-shot classifier loading failed: {e}")
-            self.zero_shot_classifier = None
-        
-        print("✅ Advanced AI Engine initialized successfully!")
+            print(f"⚠️ Error loading models: {e}")
+            raise
         
     def compute_semantic_similarity(
         self, 
@@ -105,6 +137,25 @@ class AdvancedAIEngine:
         Returns:
             List of similarity scores (0-1) atau list of (document, score)
         """
+        # Fallback for lite mode
+        if self.lite_mode or self.embedding_model is None:
+            print("⚠️ Semantic similarity unavailable (LITE MODE) - using keyword matching")
+            scores = []
+            query_lower = query.lower()
+            for doc in documents:
+                doc_lower = doc.lower()
+                # Simple keyword overlap
+                query_words = set(query_lower.split())
+                doc_words = set(doc_lower.split())
+                overlap = len(query_words & doc_words)
+                score = min(overlap / max(len(query_words), 1), 1.0)
+                scores.append(score)
+            
+            if return_scores:
+                return scores
+            else:
+                return list(zip(documents, scores))
+        
         # Encode query
         query_embedding = self.embedding_model.encode(
             query, 
@@ -633,12 +684,34 @@ class AdvancedAIEngine:
 # Singleton instance untuk reuse
 _engine_instance = None
 
-def get_ai_engine(device: str = None) -> AdvancedAIEngine:
+def get_ai_engine(device: str = None, lite_mode: bool = None) -> AdvancedAIEngine:
     """
     Get singleton instance of AI Engine.
     Prevents loading models multiple times.
+    
+    Args:
+        device: 'cuda', 'cpu', atau None
+        lite_mode: If True, use minimal models (for low memory), None = auto from config
     """
     global _engine_instance
     if _engine_instance is None:
-        _engine_instance = AdvancedAIEngine(device=device)
+        # Check config for lite mode if not specified
+        if lite_mode is None:
+            from config import AI_LITE_MODE
+            lite_mode = AI_LITE_MODE
+            if lite_mode:
+                print("✅ AI_LITE_MODE enabled from config (using minimal models)")
+        
+        try:
+            _engine_instance = AdvancedAIEngine(device=device, lite_mode=lite_mode)
+        except OSError as e:
+            if "paging file" in str(e).lower() or "1455" in str(e):
+                print("⚠️ Memory error - forcing LITE MODE")
+                _engine_instance = AdvancedAIEngine(device=device, lite_mode=True)
+            else:
+                raise
+        except Exception as e:
+            print(f"⚠️ Error initializing AI Engine: {e}")
+            print("⚠️ Falling back to LITE MODE")
+            _engine_instance = AdvancedAIEngine(device=device, lite_mode=True)
     return _engine_instance

@@ -1,7 +1,7 @@
 """
 Ultra Advanced Employee Analyzer Page
 ======================================
-UI page dengan flexible scoring untuk entry-level jobs
+Batch Analysis dengan 3 tab terpisah: Upload & Preview, Analisis, Hasil
 UPGRADED dengan OpenRouter AI integration
 """
 
@@ -19,10 +19,10 @@ load_env()
 
 
 def render_ultra_employee_analyzer_page():
-    """Render halaman Employee Analyzer dengan job complexity detection"""
+    """Render halaman Employee Analyzer untuk Batch Analysis dengan 3 tab"""
     
-    st.title("👥 Ultra Employee Analyzer")
-    st.markdown("### Analisis Karyawan dengan AI Super Pintar")
+    st.title("👥 Ultra Employee Analyzer - Batch Analysis")
+    st.markdown("### Analisis Multiple Kandidat Sekaligus dengan AI Super Pintar")
     st.markdown("---")
     
     # Info banner
@@ -30,12 +30,12 @@ def render_ultra_employee_analyzer_page():
         st.markdown("""
         **Upgrade Terbaru:**
         - 🤖 **OpenRouter AI** untuk semantic reasoning mendalam
+        - 📊 **Batch Analysis** untuk banyak kandidat sekaligus
         - 🎯 Deteksi kompleksitas pekerjaan otomatis (Entry/Mid/Senior)
         - 🌱 Scoring fleksibel untuk posisi entry-level
         - 🆓 Fresh graduate friendly evaluation
         - 💭 Reasoning kontekstual seperti HR profesional
         - 📱 Social media auto-search (optional)
-        - 📊 Batch analysis untuk banyak kandidat sekaligus
         
         **AI Model:** deepseek-chat (FREE)
         """)
@@ -43,10 +43,11 @@ def render_ultra_employee_analyzer_page():
         # Check API key status
         api_status = validate_api_keys()
         if api_status['openrouter']['configured']:
-            st.success(f"✅ OpenRouter API: Active")
+            st.info(f"ℹ️ OpenRouter API: Configured (mungkin expired/invalid - fallback aktif)")
+            st.caption("Jika muncul error 401, dapatkan API key baru di https://openrouter.ai/keys")
         else:
-            st.warning("⚠️ OpenRouter API: Not configured (akan menggunakan fallback scoring)")
-            st.caption("Set OPENROUTER_API_KEY di file .env untuk mengaktifkan AI reasoning")
+            st.warning("⚠️ OpenRouter API: Not configured (menggunakan fallback scoring)")
+            st.caption("Set OPENROUTER_API_KEY di file .env untuk AI reasoning - atau biarkan fallback")
     
     # Initialize analyzer
     if 'employee_analyzer' not in st.session_state:
@@ -55,220 +56,54 @@ def render_ultra_employee_analyzer_page():
     
     analyzer = st.session_state.employee_analyzer
     
-    # Tabs
-    tab1, tab2, tab3 = st.tabs(["👤 Single Analysis", "📊 Batch Analysis", "ℹ️ Help"])
+    # Tabs - 3 tab seperti CV Analyzer
+    tab1, tab2, tab3 = st.tabs(["📤 Upload & Preview", "🔍 Analisis", "📊 Hasil"])
     
     # ======================
-    # TAB 1: Single Analysis
+    # TAB 1: Upload & Preview
     # ======================
     with tab1:
-        st.markdown("## 🎯 Analisis Single Kandidat")
+        st.markdown("## 📤 Upload Data Kandidat")
+        st.markdown("Upload file Excel atau CSV berisi data multiple kandidat untuk batch analysis")
         
-        # Job Description Section
-        st.markdown("### 📋 Job Requirements")
+        # File format guide
+        st.markdown("---")
+        st.markdown("### 📋 Format File yang Diperlukan")
         
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            job_title = st.text_input(
-                "Judul Posisi",
-                placeholder="Contoh: Admin, Customer Service, Software Engineer",
-                help="Masukkan nama posisi yang dicari"
-            )
+            st.markdown("""
+            **File Excel/CSV dengan kolom:**
+            - `name`: Nama kandidat (Required)
+            - `position`: Posisi saat ini (Required)
+            - `skills`: Keahlian (Required)
+            - `experience`: Pengalaman (Required)
+            - `bio`: Profil singkat (Required)
+            - `social_media_url`: URL social media (Optional)
+            """)
         
         with col2:
-            st.markdown("**Contoh:**")
-            st.caption("- Admin")
-            st.caption("- Kasir")
-            st.caption("- Data Analyst")
-        
-        job_criteria = st.text_area(
-            "Kriteria Pekerjaan",
-            height=150,
-            placeholder="Masukkan deskripsi lengkap kriteria, requirements, responsibilities.\n\nContoh untuk Admin:\n- Mengelola administrasi kantor\n- Membuat laporan\n- Komunikasi dengan tim\n- Skill: MS Office, komunikasi baik, detail-oriented\n- Attitude: rajin, bertanggung jawab, proaktif",
-            help="Semakin detail, semakin akurat analisisnya. Sistem akan otomatis detect kompleksitas pekerjaan."
-        )
+            st.markdown("**Contoh Format:**")
+            example_df = pd.DataFrame({
+                'name': ['John Doe', 'Jane Smith'],
+                'position': ['Admin', 'Customer Service'],
+                'skills': ['MS Office, Komunikasi', 'Customer Service, Problem Solving'],
+                'experience': ['2 tahun admin', '1 tahun CS'],
+                'bio': ['Fresh graduate termotivasi', 'Berpengalaman di retail']
+            })
+            st.dataframe(example_df, use_container_width=True)
         
         st.markdown("---")
         
-        # Candidate Data Section
-        st.markdown("### 👤 Data Kandidat")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            candidate_name = st.text_input("Nama Lengkap", placeholder="Contoh: John Doe")
-            candidate_position = st.text_input("Posisi Saat Ini", placeholder="Contoh: Staff Admin")
-        
-        with col2:
-            use_social_media = st.checkbox("Analisis Social Media (Optional)", value=False)
-            social_media_url = st.text_input(
-                "Social Media URL (Optional)",
-                placeholder="https://linkedin.com/in/username",
-                disabled=not use_social_media
-            )
-        
-        candidate_skills = st.text_area(
-            "Skills & Keahlian",
-            height=100,
-            placeholder="Masukkan skill yang dimiliki kandidat.\nContoh: MS Office (Excel, Word, PowerPoint), komunikasi, data entry, customer service"
-        )
-        
-        candidate_experience = st.text_area(
-            "Pengalaman",
-            height=100,
-            placeholder="Masukkan pengalaman kerja atau organisasi.\nContoh: Admin di PT ABC (2 tahun), Bendahara OSIS (2020-2021)"
-        )
-        
-        candidate_bio = st.text_area(
-            "Bio / Profil Singkat",
-            height=100,
-            placeholder="Masukkan deskripsi singkat tentang kandidat.\nContoh: Fresh graduate yang termotivasi untuk belajar, memiliki pengalaman organisasi sebagai koordinator event"
-        )
-        
-        # Analyze button
-        st.markdown("---")
-        
-        if st.button("🚀 Mulai Analisis", type="primary", disabled=not (job_title and job_criteria and candidate_name)):
-            with st.spinner("🧠 AI sedang menganalisis kandidat..."):
-                try:
-                    # Prepare employee data
-                    employee_data = {
-                        'name': candidate_name,
-                        'position': candidate_position,
-                        'skills': candidate_skills,
-                        'experience': candidate_experience,
-                        'bio': candidate_bio,
-                        'social_media_url': social_media_url if use_social_media else ''
-                    }
-                    
-                    # Run analysis
-                    result = analyzer.analyze_employee(
-                        employee_data=employee_data,
-                        job_criteria=job_criteria,
-                        target_position=job_title,
-                        use_social_media=use_social_media
-                    )
-                    
-                    # Store result
-                    st.session_state.single_analysis_result = result
-                    
-                    st.success("✅ Analisis selesai!")
-                    st.balloons()
-                    
-                except Exception as e:
-                    st.error(f"❌ Error during analysis: {str(e)}")
-                    st.exception(e)
-        
-        # Display Results
-        if 'single_analysis_result' in st.session_state:
-            st.markdown("---")
-            st.markdown("## 📊 Hasil Analisis")
-            
-            result = st.session_state.single_analysis_result
-            formatter = HumanFriendlyFormatter()
-            
-            # Job Complexity Info
-            if result.job_profile:
-                st.markdown("### 🎯 Analisis Kompleksitas Pekerjaan")
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    complexity_color = {
-                        'low': '🟢',
-                        'mid': '🟡',
-                        'high': '🔴'
-                    }
-                    st.metric(
-                        "Complexity",
-                        f"{complexity_color.get(result.job_profile.complexity.value, '⚪')} {result.job_profile.complexity.value.upper()}"
-                    )
-                
-                with col2:
-                    st.metric(
-                        "Fresh Grad OK?",
-                        "✅ YES" if result.job_profile.fresh_graduate_friendly else "⚠️ NO"
-                    )
-                
-                with col3:
-                    st.metric(
-                        "Soft Skill Weight",
-                        f"{result.job_profile.soft_skill_weight * 100:.0f}%"
-                    )
-                
-                with col4:
-                    st.metric(
-                        "Flexibility",
-                        f"{result.job_profile.experience_flexibility * 100:.0f}%"
-                    )
-                
-                st.info(f"**Reasoning:** {result.job_profile.reasoning}")
-                
-                st.markdown("---")
-            
-            # Main Analysis
-            formatter.format_employee_analysis_card(result)
-            
-            # Export
-            st.markdown("---")
-            st.markdown("### 💾 Export Hasil")
-            
-            export_data = result.to_dict()
-            df_export = pd.DataFrame([export_data])
-            
-            csv = df_export.to_csv(index=False)
-            st.download_button(
-                label="📥 Download as CSV",
-                data=csv,
-                file_name=f"employee_analysis_{result.employee_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-    
-    # ======================
-    # TAB 2: Batch Analysis
-    # ======================
-    with tab2:
-        st.markdown("## 📊 Batch Analysis")
-        st.markdown("Analisis multiple kandidat sekaligus dari file Excel/CSV")
-        
-        # Job Description
-        st.markdown("### 📋 Job Requirements")
-        
-        batch_job_title = st.text_input(
-            "Judul Posisi (Batch)",
-            placeholder="Contoh: Admin",
-            key="batch_job_title"
-        )
-        
-        batch_job_criteria = st.text_area(
-            "Kriteria Pekerjaan (Batch)",
-            height=150,
-            placeholder="Masukkan kriteria lengkap...",
-            key="batch_job_criteria"
-        )
-        
-        st.markdown("---")
-        
-        # File Upload
-        st.markdown("### 📤 Upload Data Kandidat")
-        
-        st.markdown("""
-        **Format file yang diperlukan:**
-        
-        File Excel/CSV dengan kolom:
-        - `name`: Nama kandidat
-        - `position`: Posisi saat ini
-        - `skills`: Keahlian
-        - `experience`: Pengalaman
-        - `bio`: Profil singkat
-        - `social_media_url` (optional): URL social media
-        """)
+        # File uploader
+        st.markdown("### 📤 Upload File")
         
         uploaded_file = st.file_uploader(
             "Upload Excel atau CSV",
             type=['xlsx', 'xls', 'csv'],
-            help="Upload file dengan format yang sesuai"
+            help="Upload file dengan format yang sesuai",
+            key="emp_batch_upload"
         )
         
         if uploaded_file is not None:
@@ -279,176 +114,475 @@ def render_ultra_employee_analyzer_page():
                 else:
                     df = pd.read_excel(uploaded_file)
                 
-                st.success(f"✅ File loaded: {len(df)} kandidat")
-                
-                # Display preview
-                st.markdown("**Preview Data:**")
-                st.dataframe(df.head())
+                st.success(f"✅ File berhasil di-upload: **{uploaded_file.name}**")
+                st.info(f"📊 Total kandidat: **{len(df)}** orang")
                 
                 # Validate columns
                 required_cols = ['name', 'position', 'skills', 'experience', 'bio']
                 missing_cols = [col for col in required_cols if col not in df.columns]
                 
                 if missing_cols:
-                    st.error(f"❌ Kolom yang hilang: {', '.join(missing_cols)}")
-                    st.info("Pastikan file memiliki kolom: name, position, skills, experience, bio")
+                    st.error(f"❌ Kolom yang hilang: **{', '.join(missing_cols)}**")
+                    st.warning("Pastikan file memiliki semua kolom required: name, position, skills, experience, bio")
                 else:
-                    # Social media option
-                    use_social_batch = st.checkbox(
-                        "Analisis Social Media untuk semua kandidat",
-                        value=False,
-                        key="batch_social"
-                    )
+                    # Store in session state
+                    st.session_state.emp_batch_data = df
+                    st.session_state.emp_batch_filename = uploaded_file.name
                     
-                    # Analyze button
-                    if st.button("🚀 Mulai Batch Analysis", type="primary", disabled=not (batch_job_title and batch_job_criteria)):
-                        with st.spinner(f"🧠 Analyzing {len(df)} kandidat... Mohon tunggu..."):
-                            try:
-                                # Run batch analysis
-                                results_df = analyzer.analyze_batch(
-                                    employees_df=df,
-                                    job_criteria=batch_job_criteria,
-                                    target_position=batch_job_title,
-                                    use_social_media=use_social_batch
-                                )
-                                
-                                st.session_state.batch_results = results_df
-                                
-                                st.success("✅ Batch analysis selesai!")
-                                st.balloons()
-                                
-                            except Exception as e:
-                                st.error(f"❌ Error: {str(e)}")
-                                st.exception(e)
+                    st.markdown("---")
+                    st.markdown("### 👁️ Preview Data")
+                    
+                    # Display full data with pagination
+                    st.markdown(f"**Menampilkan {min(10, len(df))} dari {len(df)} kandidat:**")
+                    st.dataframe(df.head(10), use_container_width=True)
+                    
+                    if len(df) > 10:
+                        st.caption(f"ℹ️ {len(df) - 10} kandidat lainnya akan diproses saat analisis")
+                    
+                    # Summary statistics
+                    st.markdown("---")
+                    st.markdown("### 📊 Summary Statistik")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Total Kandidat", len(df))
+                    
+                    with col2:
+                        unique_positions = df['position'].nunique()
+                        st.metric("Unique Positions", unique_positions)
+                    
+                    with col3:
+                        has_skills = df['skills'].notna().sum()
+                        st.metric("Dengan Skills", has_skills)
+                    
+                    with col4:
+                        has_exp = df['experience'].notna().sum()
+                        st.metric("Dengan Experience", has_exp)
+                    
+                    # Action buttons
+                    st.markdown("---")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        if st.button("🔄 Upload File Baru", key="emp_upload_new"):
+                            for key in ['emp_batch_data', 'emp_batch_filename', 'emp_batch_results']:
+                                if key in st.session_state:
+                                    del st.session_state[key]
+                            st.rerun()
+                    
+                    with col2:
+                        if st.button("➡️ Lanjut ke Analisis", type="primary", key="emp_goto_analysis"):
+                            st.info("👉 Silakan ke tab **Analisis** untuk input job description dan mulai batch analysis")
             
             except Exception as e:
                 st.error(f"❌ Error reading file: {str(e)}")
+                st.exception(e)
         
-        # Display Batch Results
-        if 'batch_results' in st.session_state:
-            st.markdown("---")
-            st.markdown("## 📊 Hasil Batch Analysis")
-            
-            results_df = st.session_state.batch_results
-            
-            # Summary stats
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Total Kandidat", len(results_df))
-            
-            with col2:
-                excellent = len(results_df[results_df['tier'] == 'EXCELLENT'])
-                st.metric("Excellent", excellent)
-            
-            with col3:
-                strong = len(results_df[results_df['tier'] == 'STRONG'])
-                st.metric("Strong", strong)
-            
-            with col4:
-                avg_score = results_df['overall_score'].mean()
-                st.metric("Avg Score", f"{avg_score:.1f}")
-            
-            # Display table
-            st.markdown("### 📋 Tabel Hasil")
-            st.dataframe(
-                results_df.sort_values('overall_score', ascending=False),
-                use_container_width=True
-            )
-            
-            # Export
-            st.markdown("---")
-            st.markdown("### 💾 Export Hasil")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                csv = results_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download as CSV",
-                    data=csv,
-                    file_name=f"batch_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
-            
-            with col2:
-                # Excel export
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    results_df.to_excel(writer, index=False, sheet_name='Analysis Results')
-                
-                st.download_button(
-                    label="📥 Download as Excel",
-                    data=output.getvalue(),
-                    file_name=f"batch_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+        else:
+            st.info("📁 Silakan upload file Excel atau CSV untuk memulai batch analysis")
     
     # ======================
-    # TAB 3: Help
+    # TAB 2: Analisis
+    # ======================
+    with tab2:
+        st.markdown("## 🔍 Batch Analysis")
+        
+        # Check if data is loaded
+        if 'emp_batch_data' not in st.session_state:
+            st.warning("⚠️ Silakan upload file data kandidat terlebih dahulu di tab **Upload & Preview**")
+            return
+        
+        df = st.session_state.emp_batch_data
+        st.success(f"✅ Data loaded: **{st.session_state.emp_batch_filename}** ({len(df)} kandidat)")
+        
+        st.markdown("---")
+        
+        # Job Description Section
+        st.markdown("### 📋 Job Requirements")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            emp_job_title = st.text_input(
+                "Judul Posisi",
+                placeholder="Contoh: Admin, Customer Service, Data Analyst",
+                help="Masukkan nama posisi yang dicari",
+                key="emp_job_title"
+            )
+        
+        with col2:
+            st.markdown("**Contoh:**")
+            st.caption("- Admin")
+            st.caption("- Kasir")
+            st.caption("- Customer Service")
+        
+        emp_job_criteria = st.text_area(
+            "Kriteria Pekerjaan",
+            height=200,
+            placeholder="""Masukkan deskripsi lengkap kriteria, requirements, responsibilities.
+
+Contoh untuk Admin:
+- Mengelola administrasi kantor
+- Membuat laporan harian/bulanan
+- Komunikasi dengan tim
+- Data entry dan filing
+
+Skills Required:
+- MS Office (Excel, Word, PowerPoint)
+- Komunikasi baik
+- Detail-oriented
+- Organisasi yang rapi
+
+Attitude:
+- Rajin dan bertanggung jawab
+- Proaktif
+- Bisa bekerja dalam tim""",
+            help="Semakin detail, semakin akurat analisisnya. Sistem akan otomatis detect kompleksitas pekerjaan.",
+            key="emp_job_criteria"
+        )
+        
+        st.markdown("---")
+        
+        # Options
+        st.markdown("### ⚙️ Opsi Analisis")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            emp_use_social = st.checkbox(
+                "🌐 Analisis Social Media",
+                value=False,
+                help="Analisis profile social media kandidat (jika tersedia)",
+                key="emp_use_social"
+            )
+        
+        with col2:
+            st.info(f"📊 Total kandidat yang akan dianalisis: **{len(df)}**")
+        
+        # Analyze button
+        st.markdown("---")
+        
+        if st.button("🚀 Mulai Batch Analysis", type="primary", disabled=not (emp_job_title and emp_job_criteria), key="emp_start_analysis"):
+            with st.spinner(f"🧠 Analyzing {len(df)} kandidat... Mohon tunggu, ini mungkin memakan waktu beberapa menit..."):
+                
+                # Progress indicator
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    status_text.text(f"⏳ Memulai analisis untuk {len(df)} kandidat...")
+                    
+                    # Run batch analysis
+                    results_df = analyzer.analyze_batch(
+                        employees_df=df,
+                        job_criteria=emp_job_criteria,
+                        target_position=emp_job_title,
+                        use_social_media=emp_use_social
+                    )
+                    
+                    # Complete progress
+                    progress_bar.progress(100)
+                    status_text.text("✅ Analysis completed!")
+                    
+                    # Store results
+                    st.session_state.emp_batch_results = results_df
+                    st.session_state.emp_result_job_title = emp_job_title
+                    st.session_state.emp_result_job_criteria = emp_job_criteria
+                    
+                    st.success("✅ Batch analysis selesai!")
+                    st.info("👉 Lihat hasil lengkap di tab **Hasil**")
+                    st.balloons()
+                    
+                except Exception as e:
+                    st.error(f"❌ Error during analysis: {str(e)}")
+                    st.exception(e)
+        
+        if not emp_job_title:
+            st.warning("⚠️ Masukkan judul posisi")
+        if not emp_job_criteria:
+            st.warning("⚠️ Masukkan kriteria pekerjaan")
+    
+    # ======================
+    # TAB 3: Hasil
     # ======================
     with tab3:
-        st.markdown("## ℹ️ Panduan Penggunaan")
+        st.markdown("## 📊 Hasil Batch Analysis")
         
-        st.markdown("""
-        ### 🎯 Cara Kerja Sistem
+        if 'emp_batch_results' not in st.session_state:
+            st.info("ℹ️ Belum ada hasil analisis. Silakan upload data dan jalankan batch analysis terlebih dahulu.")
+            return
         
-        Sistem ini menggunakan AI super canggih untuk menganalisis kandidat dengan cara yang **fleksibel dan realistis**:
+        results_df = st.session_state.emp_batch_results
+        job_title = st.session_state.get('emp_result_job_title', 'N/A')
         
-        #### 1️⃣ Deteksi Kompleksitas Pekerjaan Otomatis
+        # Header
+        st.markdown(f"### 🎯 Target Position: **{job_title}**")
+        st.markdown(f"**Total Kandidat Dianalisis:** {len(results_df)}")
         
-        Sistem akan otomatis mendeteksi apakah pekerjaan termasuk:
-        - **Low Complexity (Entry-Level)**: Admin, Kasir, CS, Data Entry, Front Office, dll.
-        - **Mid Complexity**: Staff dengan skill spesifik, coordinator, dll.
-        - **High Complexity**: Engineer, Manager, Specialist, dll.
+        st.markdown("---")
         
-        #### 2️⃣ Scoring Fleksibel
+        # Summary Statistics
+        st.markdown("### 📈 Summary Statistik")
         
-        **Untuk Pekerjaan Entry-Level:**
-        - ✅ Fresh graduate TIDAK otomatis ditolak
-        - ✅ Soft skill (komunikasi, attitude) lebih penting dari hard skill
-        - ✅ Pengalaman organisasi dihargai setara pengalaman kerja ringan
-        - ✅ Fokus pada potensi dan kemampuan belajar
+        col1, col2, col3, col4 = st.columns(4)
         
-        **Untuk Pekerjaan High-Level:**
-        - ⚠️ Pengalaman relevan sangat penting
-        - ⚠️ Hard skill teknis dominan
-        - ⚠️ Fresh graduate harus punya project/portfolio kuat
+        with col1:
+            st.metric("Total Kandidat", len(results_df))
         
-        #### 3️⃣ Reasoning Manusiawi
+        with col2:
+            if 'tier' in results_df.columns:
+                excellent = len(results_df[results_df['tier'] == 'EXCELLENT'])
+                st.metric("⭐ Excellent", excellent)
         
-        Sistem memberikan penjelasan seperti HR profesional:
+        with col3:
+            if 'tier' in results_df.columns:
+                strong = len(results_df[results_df['tier'] == 'STRONG'])
+                st.metric("💪 Strong", strong)
         
-        > "Untuk posisi Admin yang termasuk entry-level, kandidat ini sangat layak. 
-        > Meskipun belum memiliki pengalaman admin langsung, CV menunjukkan kemampuan 
-        > organisasi yang baik, dokumentasi yang rapi, dan attitude yang positif."
+        with col4:
+            if 'overall_score' in results_df.columns:
+                avg_score = results_df['overall_score'].mean()
+                st.metric("📊 Avg Score", f"{avg_score:.1f}")
         
-        #### 4️⃣ Tidak Ada Keyword Matching Kaku
+        st.markdown("---")
         
-        Sistem menggunakan **semantic understanding**:
-        - Memahami konteks, bukan hanya keyword
-        - Mengenali skill implisit dari pengalaman
-        - Mendeteksi pola kepemimpinan, problem-solving, inisiatif
+        # Tier Distribution
+        if 'tier' in results_df.columns:
+            st.markdown("### 🎯 Distribusi Tier")
+            
+            tier_counts = results_df['tier'].value_counts()
+            
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                for tier in ['EXCELLENT', 'STRONG', 'MEDIUM', 'LOW']:
+                    if tier in tier_counts.index:
+                        count = tier_counts[tier]
+                        percentage = (count / len(results_df)) * 100
+                        st.progress(percentage / 100)
+                        st.caption(f"**{tier}**: {count} kandidat ({percentage:.1f}%)")
+            
+            with col2:
+                st.markdown("**Legend:**")
+                st.markdown("⭐ **EXCELLENT**: Top tier")
+                st.markdown("💪 **STRONG**: Sangat baik")
+                st.markdown("🟢 **MEDIUM**: Baik")
+                st.markdown("🟡 **LOW**: Perlu peningkatan")
         
-        ### 💡 Tips Penggunaan
+        st.markdown("---")
         
-        1. **Job Description**: Semakin detail, semakin akurat
-        2. **Entry-Level Jobs**: Jangan khawatir dengan fresh graduate
-        3. **Data Kandidat**: Input sebanyak mungkin informasi
-        4. **Batch Analysis**: Gunakan untuk screening awal banyak kandidat
+        # Results Table
+        st.markdown("### 📋 Tabel Hasil Detail")
         
-        ### 📞 Troubleshooting
+        # Sort options
+        col1, col2 = st.columns([3, 1])
         
-        **Q: Fresh graduate mendapat score rendah untuk posisi admin?**
-        A: Pastikan job title mengandung kata seperti "admin", "staff", "entry", "junior". 
-        Sistem akan otomatis detect sebagai low-complexity dan scoring akan fleksibel.
+        with col1:
+            sort_by = st.selectbox(
+                "Sortir berdasarkan:",
+                ['overall_score', 'tier', 'employee_name'],
+                format_func=lambda x: {
+                    'overall_score': '📊 Overall Score',
+                    'tier': '🎯 Tier',
+                    'employee_name': '👤 Nama'
+                }.get(x, x),
+                key="emp_sort_by"
+            )
         
-        **Q: Bagaimana jika tidak ada social media?**
-        A: Tidak masalah. Social media bersifat optional dan tidak mempengaruhi score utama.
+        with col2:
+            sort_order = st.radio(
+                "Urutan:",
+                ['desc', 'asc'],
+                format_func=lambda x: '⬇️ Descending' if x == 'desc' else '⬆️ Ascending',
+                key="emp_sort_order"
+            )
         
-        **Q: Candidate level seperti apa yang cocok untuk entry-level?**
-        A: Fresh graduate, Junior (0-2 tahun), bahkan yang hanya punya pengalaman organisasi.
-        """)
+        # Sort dataframe
+        sorted_df = results_df.sort_values(
+            by=sort_by,
+            ascending=(sort_order == 'asc')
+        )
+        
+        # Display table
+        st.dataframe(
+            sorted_df,
+            use_container_width=True,
+            height=400
+        )
+        
+        st.markdown("---")
+        
+        # Top Candidates
+        if 'overall_score' in results_df.columns:
+            st.markdown("### 🏆 Top 5 Kandidat")
+            
+            top_5 = results_df.nlargest(5, 'overall_score')
+            
+            for idx, (_, row) in enumerate(top_5.iterrows(), 1):
+                with st.expander(f"#{idx} - {row.get('employee_name', 'N/A')} - Score: {row.get('overall_score', 0):.1f}"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown(f"**Tier:** {row.get('tier', 'N/A')}")
+                        st.markdown(f"**Recommendation:** {row.get('recommendation', 'N/A')}")
+                        st.markdown(f"**Overall Score:** {row.get('overall_score', 0):.1f}/100")
+                    
+                    with col2:
+                        st.markdown(f"**Current Position:** {row.get('current_position', 'N/A')}")
+                        if 'executive_summary' in row:
+                            summary = str(row.get('executive_summary', 'N/A'))
+                            st.markdown(f"**Summary:** {summary[:150]}...")
+        
+        st.markdown("---")
+        
+        # All Candidates Detail View
+        st.markdown("### 👥 Detail Per Kandidat (Klik untuk lihat detail lengkap)")
+        
+        # Sort options untuk detail view
+        view_sorted_df = sorted_df  # Gunakan data yang sudah di-sort
+        
+        for idx, (_, row) in enumerate(view_sorted_df.iterrows(), 1):
+            # Emoji tier
+            tier_emoji = {
+                'EXCELLENT': '⭐',
+                'STRONG': '💪',
+                'MEDIUM': '🟢',
+                'LOW': '🟡'
+            }.get(row.get('tier', ''), '🔵')
+            
+            # Expander dengan info ringkas
+            expander_title = f"{tier_emoji} {row.get('employee_name', 'N/A')} - {row.get('tier', 'N/A')} - Score: {row.get('overall_score', 0):.1f}/100"
+            
+            with st.expander(expander_title):
+                # Header Info
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("📊 Overall Score", f"{row.get('overall_score', 0):.1f}/100")
+                
+                with col2:
+                    st.metric("🎯 Tier", row.get('tier', 'N/A'))
+                
+                with col3:
+                    st.metric("💼 Recommendation", row.get('recommendation', 'N/A'))
+                
+                st.markdown("---")
+                
+                # Detailed Information
+                detail_col1, detail_col2 = st.columns([1, 1])
+                
+                with detail_col1:
+                    st.markdown("#### 📋 Informasi Kandidat")
+                    st.markdown(f"**Posisi Saat Ini:** {row.get('current_position', 'N/A')}")
+                    st.markdown(f"**Skills:** {row.get('skills', 'N/A')}")
+                    st.markdown(f"**Experience:** {row.get('experience', 'N/A')}")
+                    
+                    if 'bio' in row and pd.notna(row.get('bio')):
+                        st.markdown(f"**Bio:** {row.get('bio', 'N/A')}")
+                
+                with detail_col2:
+                    st.markdown("#### 🎯 Breakdown Score")
+                    if 'skills_match' in row:
+                        st.markdown(f"**Skills Match:** {row.get('skills_match', 0):.1f}/100")
+                    if 'experience_score' in row:
+                        st.markdown(f"**Experience:** {row.get('experience_score', 0):.1f}/100")
+                    if 'cultural_fit' in row:
+                        st.markdown(f"**Cultural Fit:** {row.get('cultural_fit', 0):.1f}/100")
+                    if 'growth_potential' in row:
+                        st.markdown(f"**Growth Potential:** {row.get('growth_potential', 0):.1f}/100")
+                
+                # Executive Summary
+                if 'executive_summary' in row and pd.notna(row.get('executive_summary')):
+                    st.markdown("---")
+                    st.markdown("#### 📝 Executive Summary")
+                    st.info(row.get('executive_summary', 'N/A'))
+                
+                # Reasoning (jika ada)
+                if 'reasoning' in row and pd.notna(row.get('reasoning')):
+                    st.markdown("---")
+                    st.markdown("#### 💭 AI Reasoning")
+                    with st.container():
+                        st.markdown(row.get('reasoning', 'N/A'))
+                
+                # Additional details (red flags, strengths, gaps)
+                if any(col in row for col in ['strengths', 'gaps', 'red_flags']):
+                    st.markdown("---")
+                    detail_col1, detail_col2, detail_col3 = st.columns(3)
+                    
+                    with detail_col1:
+                        if 'strengths' in row and pd.notna(row.get('strengths')):
+                            st.markdown("#### ✅ Strengths")
+                            st.success(row.get('strengths', 'N/A'))
+                    
+                    with detail_col2:
+                        if 'gaps' in row and pd.notna(row.get('gaps')):
+                            st.markdown("#### ⚠️ Gaps")
+                            st.warning(row.get('gaps', 'N/A'))
+                    
+                    with detail_col3:
+                        if 'red_flags' in row and pd.notna(row.get('red_flags')):
+                            st.markdown("#### 🚩 Red Flags")
+                            st.error(row.get('red_flags', 'N/A'))
+        
+        st.markdown("---")
+        
+        # Export Options
+        st.markdown("### 💾 Export Hasil")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            csv = results_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv,
+                file_name=f"batch_analysis_{job_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                key="emp_download_csv"
+            )
+        
+        with col2:
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                results_df.to_excel(writer, index=False, sheet_name='Analysis Results')
+            
+            st.download_button(
+                label="📥 Download Excel",
+                data=output.getvalue(),
+                file_name=f"batch_analysis_{job_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="emp_download_excel"
+            )
+        
+        with col3:
+            if 'overall_score' in results_df.columns:
+                top_candidates = results_df.nlargest(10, 'overall_score')
+                csv_top = top_candidates.to_csv(index=False)
+                st.download_button(
+                    label="📥 Top 10 CSV",
+                    data=csv_top,
+                    file_name=f"top10_{job_title}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    key="emp_download_top10"
+                )
+        
+        # Actions
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Analisis Batch Baru", key="emp_new_batch"):
+                for key in ['emp_batch_data', 'emp_batch_filename', 'emp_batch_results', 'emp_result_job_title', 'emp_result_job_criteria']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
+        
+        with col2:
+            if st.button("📝 Analisis dengan Job Description Berbeda", key="emp_different_job"):
+                if 'emp_batch_results' in st.session_state:
+                    del st.session_state.emp_batch_results
+                st.info("👉 Kembali ke tab **Analisis** untuk menggunakan data yang sama dengan job description berbeda")
 
 
 if __name__ == "__main__":

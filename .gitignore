@@ -6,7 +6,6 @@ __pycache__/
 .Python
 env/
 venv/
-.venv/
 ENV/
 build/
 develop-eggs/
@@ -24,10 +23,10 @@ wheels/
 .installed.cfg
 *.egg
 
-# Streamlit local config
-.streamlit/secrets.toml
+# Streamlit
+.streamlit/
 
-# Models cache (too large for deployment)
+# Models cache
 models/
 transformers_cache/
 sentence_transformers_cache/
@@ -51,14 +50,5 @@ Thumbs.db
 # Logs
 *.log
 
-# Environment variables (IMPORTANT - never commit!)
+# Environment
 .env
-.env.local
-.env.production
-
-# Vercel
-.vercel
-
-# Testing
-test_ai_system.py
-sample_data.csv
