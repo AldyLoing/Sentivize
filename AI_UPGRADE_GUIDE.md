@@ -86,10 +86,10 @@ cp .env.example .env
 Edit `.env` dan isi dengan API key:
 
 ```env
-OPENROUTER_API_KEY=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
+OPENROUTER_API_KEY=your_openrouter_api_key_here
 ```
 
-> **Note**: API key di atas sudah disediakan dan GRATIS untuk model deepseek-chat.
+> **Note**: Dapatkan API key GRATIS di [openrouter.ai/keys](https://openrouter.ai/keys) untuk model deepseek-chat.
 
 ### 3. Jalankan Aplikasi
 
